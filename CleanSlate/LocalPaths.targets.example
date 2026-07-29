@@ -1,0 +1,15 @@
+<!--
+  Copy this file to LocalPaths.targets (same folder) and fill in your actual paths.
+  LocalPaths.targets is gitignored -- it's per-machine, never committed.
+-->
+<Project>
+	<PropertyGroup>
+		<!-- Typically: <profile>\MelonLoader\net6 -->
+		<MelonLoaderNet6Path>C:\Users\you\AppData\Roaming\r2modmanPlus-local\ScheduleI\profiles\YourProfile\MelonLoader\net6</MelonLoaderNet6Path>
+		<!-- Typically: <profile>\MelonLoader\Il2CppAssemblies -->
+		<ManagedDllPath>C:\Users\you\AppData\Roaming\r2modmanPlus-local\ScheduleI\profiles\YourProfile\MelonLoader\Il2CppAssemblies</ManagedDllPath>
+		<!-- Where the built DLL should be copied after each build, so it's picked up on next launch.
+		     Typically: <profile>\Mods\<your-mod-folder>\Plugins -->
+		<ModOutputPath>C:\Users\you\AppData\Roaming\r2modmanPlus-local\ScheduleI\profiles\YourProfile\Mods\yourname-CleanSlate\Plugins</ModOutputPath>
+	</PropertyGroup>
+</Project>

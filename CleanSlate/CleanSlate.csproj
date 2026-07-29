@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<Import Project="LocalPaths.targets" Condition="Exists('LocalPaths.targets')" />
+
+	<PropertyGroup>
+		<TargetFramework>net6.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AssemblyName>CleanSlate</AssemblyName>
+		<RootNamespace>CleanSlate</RootNamespace>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<IsPackable>false</IsPackable>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<NoWarn>$(NoWarn);MSB3277</NoWarn>
+	</PropertyGroup>
+
+	<!-- Bare minimum references for a MelonLoader Il2Cpp plugin, plus Assembly-CSharp for the
+	     one real game type step 1 needs (Il2CppScheduleOne.UI.NotificationsManager, to prove the
+	     wrapper can actually reach into the game, not just that MelonLoader loaded a DLL). Add
+	     more game-type references only as actual features need them, no speculative
+	     "might need this later" references. -->
+	<ItemGroup>
+		<Reference Include="MelonLoader"><HintPath>$(MelonLoaderNet6Path)\MelonLoader.dll</HintPath><Private>false</Private></Reference>
+		<Reference Include="0Harmony"><HintPath>$(MelonLoaderNet6Path)\0Harmony.dll</HintPath><Private>false</Private></Reference>
+		<Reference Include="Il2CppInterop.Runtime"><HintPath>$(MelonLoaderNet6Path)\Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
+		<Reference Include="Il2Cppmscorlib"><HintPath>$(ManagedDllPath)\Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
+		<Reference Include="UnityEngine"><HintPath>$(ManagedDllPath)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+		<Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDllPath)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+		<Reference Include="Assembly-CSharp"><HintPath>$(ManagedDllPath)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+	</ItemGroup>
+
+	<!-- Copy the built DLL straight to the dev profile's Plugins folder after each build. -->
+	<Target Name="CopyToProfile" AfterTargets="Build" Condition="'$(ModOutputPath)' != ''">
+		<MakeDir Directories="$(ModOutputPath)" />
+		<Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(ModOutputPath)" />
+	</Target>
+</Project>
