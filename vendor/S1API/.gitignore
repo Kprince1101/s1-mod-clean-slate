@@ -1,0 +1,15 @@
+.idea/
+*.dll
+*.zip
+obj/
+bin/
+*.user
+.vs/
+
+# Build props
+local.*
+
+# Local assembly references
+### TODO: ScheduleOneAssemblies is deprecated and needs removed after communications
+ScheduleOneAssemblies/
+*.bin
