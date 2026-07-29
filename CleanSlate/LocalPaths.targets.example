@@ -9,7 +9,8 @@
 		<!-- Typically: <profile>\MelonLoader\Il2CppAssemblies -->
 		<ManagedDllPath>C:\Users\you\AppData\Roaming\r2modmanPlus-local\ScheduleI\profiles\YourProfile\MelonLoader\Il2CppAssemblies</ManagedDllPath>
 		<!-- Where the built DLL should be copied after each build, so it's picked up on next launch.
-		     Typically: <profile>\Mods\<your-mod-folder>\Plugins -->
-		<ModOutputPath>C:\Users\you\AppData\Roaming\r2modmanPlus-local\ScheduleI\profiles\YourProfile\Mods\yourname-CleanSlate\Plugins</ModOutputPath>
+		     r2modman only scans the flat top-level Mods folder, not hand-made subfolders - so this
+		     must be <profile>\Mods itself, not a subfolder under it. -->
+		<ModOutputPath>C:\Users\you\AppData\Roaming\r2modmanPlus-local\ScheduleI\profiles\YourProfile\Mods</ModOutputPath>
 	</PropertyGroup>
 </Project>
