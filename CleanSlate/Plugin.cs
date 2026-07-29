@@ -17,10 +17,10 @@ namespace CleanSlate
         public override void OnUpdate()
         {
             if (_sent) return;
-            if (!Game.Notifications.IsReady) return;
+            if (!Middleware.Notifications.IsReady) return;
 
-            Game.Notifications.Send("Clean Slate", "Plugin loaded and wrapper is working.");
-            LoggerInstance.Msg("Clean Slate: sent proof-of-life notification via our own wrapper.");
+            Middleware.Notifications.Send("Clean Slate", "Plugin loaded and wrapper is working.");
+            LoggerInstance.Msg("Clean Slate: sent proof-of-life notification via the middleware interface.");
             _sent = true;
         }
     }

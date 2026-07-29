@@ -1,6 +1,6 @@
 using Il2CppScheduleOne.UI;
 
-namespace CleanSlate.Game
+namespace CleanSlate.Middleware
 {
     public static class Notifications
     {
