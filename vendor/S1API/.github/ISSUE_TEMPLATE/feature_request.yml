@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest a new feature, API addition, or improvement for S1API
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Feature Request
+
+        Keep this short if you want.
+
+        You do **not** need to know how the API should be implemented. If you're not technical, just describe:
+        - what you want to do
+        - what is blocking you today
+        - why it would help
+
+        If you have extra detail, examples, or a proposed API shape, include it below.
+
+  - type: textarea
+    id: request
+    attributes:
+      label: What would you like to see?
+      description: Describe the feature, improvement, or capability you want.
+      placeholder: "Example: I'd like an easier way to detect when a dealer inventory refreshes."
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Why would this help?
+      description: What are you trying to do, and what is difficult about it today?
+      placeholder: "Example: Right now I have to patch game methods manually, which is brittle and hard to maintain."
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra-context
+    attributes:
+      label: Extra Context (Optional)
+      description: |
+        Add anything else that might help:
+        - example use cases
+        - screenshots or mockups
+        - related APIs, namespaces, or issues
+        - a proposed solution or rough API design
+      placeholder: "Anything else you'd like to add..."
