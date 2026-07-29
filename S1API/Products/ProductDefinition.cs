@@ -1,0 +1,163 @@
+#if (IL2CPPMELON)
+using Il2CppInterop.Runtime.InteropTypes;
+using S1Product = Il2CppScheduleOne.Product;
+using ItemFramework = Il2CppScheduleOne.ItemFramework;
+using S1Properties = Il2CppScheduleOne.Effects;
+#elif (MONOMELON || MONOBEPINEX || IL2CPPBEPINEX)
+using S1Product = ScheduleOne.Product;
+using ItemFramework = ScheduleOne.ItemFramework;
+using S1Properties = ScheduleOne.Effects;
+#endif
+
+using System.Collections.Generic;
+using S1API.Internal.Utils;
+using S1API.Items;
+using S1API.Properties;
+using S1API.Properties.Interfaces;
+using S1API.Products.Packaging;
+using UnityEngine;
+
+namespace S1API.Products
+{
+    /// <summary>
+    /// Represents a product definition in the game.
+    /// </summary>
+    public class ProductDefinition : ItemDefinition
+    {
+        /// <summary>
+        /// INTERNAL: Stored reference to the game product definition.
+        /// </summary>
+        internal S1Product.ProductDefinition S1ProductDefinition =>
+            CrossType.As<S1Product.ProductDefinition>(S1ItemDefinition);
+
+        /// <summary>
+        /// INTERNAL: Creates a product definition from the in-game product definition.
+        /// </summary>
+        /// <param name="productDefinition"></param>
+#if  IL2CPPMELON
+        internal ProductDefinition(ItemFramework.ItemDefinition productDefinition) : base(productDefinition) { }
+#else
+        internal ProductDefinition(ItemFramework.ItemDefinition productDefinition) : base(productDefinition) { }
+#endif
+        /// <summary>
+        /// The price associated with this product.
+        /// </summary>
+        public float Price =>
+            S1ProductDefinition.Price;
+
+        /// <summary>
+        /// The base price associated with this product.
+        /// </summary>
+        public float BasePrice =>
+            S1ProductDefinition.BasePrice;
+        
+        /// <summary>
+        /// The market value associated with this product.
+        /// </summary>
+        public float MarketValue =>
+            S1ProductDefinition.MarketValue;
+
+        /// <summary>
+        /// Creates an instance of this product in-game.
+        /// </summary>
+        /// <param name="quantity">The quantity of product.</param>
+        /// <returns>An instance of the product.</returns>
+        public override ItemInstance CreateInstance(int quantity = 1) =>
+            new ProductInstance(CrossType.As<S1Product.ProductItemInstance>(S1ProductDefinition.GetDefaultInstance(quantity)));
+
+        /// <summary>
+        /// Gets the in-game icon associated with the product.
+        /// </summary>
+        public Sprite Icon
+        {
+            get { return S1ProductDefinition.Icon; }
+        }
+
+        /// <summary>
+        /// The list of product properties for this definition.
+        /// Returns runtime-agnostic property wrappers that work on both Mono and IL2CPP.
+        /// </summary>
+        public IReadOnlyList<PropertyBase> Properties
+        {
+            get
+            {
+                var s1Properties = S1ProductDefinition.Properties;
+                var wrappers = new List<PropertyBase>(s1Properties.Count);
+                
+                for (int i = 0; i < s1Properties.Count; i++)
+                {
+                    wrappers.Add(new ProductPropertyWrapper(s1Properties[i]));
+                }
+                
+                return wrappers.AsReadOnly();
+            }
+        }
+
+        /// <summary>
+        /// The list of drug types associated with this product definition.
+        /// Returns a C# list for IL2CPP builds to avoid type mismatches.
+        /// </summary>
+#if (IL2CPPMELON)
+        public System.Collections.Generic.IReadOnlyList<S1Product.DrugTypeContainer> DrugTypes
+        {
+            get
+            {
+                var source = S1ProductDefinition.DrugTypes; // Il2CppSystem.Collections.Generic.List<DrugTypeContainer>
+                var converted = new System.Collections.Generic.List<S1Product.DrugTypeContainer>(source != null ? source.Count : 0);
+                if (source != null)
+                {
+                    for (int i = 0; i < source.Count; i++)
+                        converted.Add(source[i]);
+                }
+                return converted.AsReadOnly();
+            }
+        }
+#else
+        public System.Collections.Generic.List<S1Product.DrugTypeContainer> DrugTypes =>
+            S1ProductDefinition.DrugTypes;
+#endif
+
+        /// <summary>
+        /// The primary drug type for this product (convenience property).
+        /// </summary>
+        public S1Product.EDrugType DrugType =>
+            S1ProductDefinition.DrugType;
+
+        /// <summary>
+        /// Creates a packaged instance of this product with the specified packaging.
+        /// </summary>
+        /// <param name="quantity">The quantity of the product.</param>
+        /// <param name="packaging">The packaging to apply to the product.</param>
+        /// <returns>A packaged product instance, or null if packaging is not found.</returns>
+        public ProductInstance? CreatePackagedInstance(int quantity, PackagingDefinition packaging)
+        {
+            try
+            {
+#if (IL2CPPMELON)
+                var s1Packaging = CrossType.As<Il2CppScheduleOne.Product.Packaging.PackagingDefinition>(packaging.S1ItemDefinition);
+#elif (MONOMELON || MONOBEPINEX || IL2CPPBEPINEX)
+                var s1Packaging = CrossType.As<ScheduleOne.Product.Packaging.PackagingDefinition>(packaging.S1ItemDefinition);
+#endif
+
+                if (s1Packaging == null)
+                {
+                    return null;
+                }
+
+                var s1ProductInstance = new S1Product.ProductItemInstance(
+                    S1ProductDefinition,
+                    quantity,
+                    ItemFramework.EQuality.Standard,
+                    s1Packaging
+                );
+
+                return new ProductInstance(s1ProductInstance);
+            }
+            catch (System.Exception)
+            {
+                return null;
+            }
+        }
+
+    }
+}
