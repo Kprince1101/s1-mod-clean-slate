@@ -5,14 +5,6 @@ using MelonLoader;
 
 namespace CleanSlate
 {
-    /// <summary>
-    /// Step 1 of the plan: prove the pipeline (build -> deploy -> MelonLoader load -> our own
-    /// wrapper reaching into the game) works before writing a single line of real feature code.
-    /// Uses Game.Notifications (our own thin wrapper around Il2CppScheduleOne.UI.NotificationsManager)
-    /// to show an in-game notification, not just a log line -- proves the actual Il2Cpp interop
-    /// path works, not just that the assembly loaded. Nothing else belongs in this file until
-    /// this is confirmed working in-game.
-    /// </summary>
     public class Plugin : MelonMod
     {
         private bool _sent;
