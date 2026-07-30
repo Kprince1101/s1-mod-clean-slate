@@ -22,6 +22,7 @@
 		<Reference Include="UnityEngine"><HintPath>$(ManagedDllPath)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDllPath)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Assembly-CSharp"><HintPath>$(ManagedDllPath)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+		<Reference Include="Il2CppFishNet.Runtime"><HintPath>$(ManagedDllPath)\Il2CppFishNet.Runtime.dll</HintPath><Private>false</Private></Reference>
 	</ItemGroup>
 
 	<!-- Copy the built DLL straight to the dev profile's Mods folder after each build. -->

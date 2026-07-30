@@ -28,14 +28,14 @@ namespace DeliveryDriver.Middleware
             }
 
             var template = app.deliveryShops[0];
-            var clone = Object.Instantiate(template.gameObject, template.transform.parent);
+            var clone = UnityEngine.Object.Instantiate(template.gameObject, template.transform.parent);
             clone.name = "DeliveryShop_GRQD";
 
             var shop = clone.GetComponent<DeliveryShop>();
             if (shop == null)
             {
                 MelonLogger.Warning("DeliveryAppListing: clone missing DeliveryShop component, aborting.");
-                Object.Destroy(clone);
+                UnityEngine.Object.Destroy(clone);
                 return;
             }
 
