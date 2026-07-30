@@ -24,7 +24,6 @@
 		<Reference Include="UnityEngine.UIModule"><HintPath>$(ManagedDllPath)\UnityEngine.UIModule.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="UnityEngine.UI"><HintPath>$(ManagedDllPath)\UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(ManagedDllPath)\UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
-		<Reference Include="UnityEngine.JSONSerializeModule"><HintPath>$(ManagedDllPath)\UnityEngine.JSONSerializeModule.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Assembly-CSharp"><HintPath>$(ManagedDllPath)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Il2CppFishNet.Runtime"><HintPath>$(ManagedDllPath)\Il2CppFishNet.Runtime.dll</HintPath><Private>false</Private></Reference>
 	</ItemGroup>

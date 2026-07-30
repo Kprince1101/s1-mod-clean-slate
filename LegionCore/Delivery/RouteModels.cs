@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 
 namespace LegionCore.Delivery
 {
@@ -25,13 +24,5 @@ namespace LegionCore.Delivery
         // Bumped by RouteManager whenever this route last actually fired, so a day-pass
         // event that fires more than once (or a route added mid-day) doesn't double-run.
         public int LastFiredDay = -1;
-    }
-
-    // Wrapper class purely so UnityEngine.JsonUtility has a top-level object to (de)serialize
-    // - it can't serialize a bare List<T> directly.
-    [Serializable]
-    public class RouteList
-    {
-        public List<Route> Routes = new();
     }
 }
