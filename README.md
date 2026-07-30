@@ -21,7 +21,9 @@ dependency on the other (same pattern as OTC/OTCLoader).
 
 ## Building
 
-Il2Cpp build target is `net6.0` (matches MelonLoader's actual host runtime). Copy
+Open `S1ModCleanSlate.sln` (repo root) in Rider/Visual Studio — not an individual mod's
+`.csproj` directly — so both mods show up in the IDE. Il2Cpp build target is `net6.0`
+(matches MelonLoader's actual host runtime). Copy
 `LocalPaths.targets.example` (repo root) to `LocalPaths.targets` and fill in your own
 profile's `MelonLoader/net6`, `MelonLoader/Il2CppAssemblies`, and `Mods` paths — it's
 gitignored and shared by every mod project in the repo. Real builds and in-game
