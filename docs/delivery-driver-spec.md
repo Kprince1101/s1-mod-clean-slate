@@ -43,6 +43,10 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 ### 3. Van spawn + navigation — feasible, real road AI included for free
 `VehicleManager.SpawnAndReturnVehicle(string vehicleCode, Vector3 position, Quaternion rotation, bool playerOwned)` spawns any vehicle at any world position. `VehicleAgent.Navigate(Vector3 location, NavigationSettings settings, callback)` routes via the game's real road AI (road graph, obstacle sweeps) — same system vanilla traffic and vanilla deliveries use. Real road driving costs nothing extra; we just call the API. Van-only v1 (no driver NPC). `NPC.SetTransform` + `EnterVehicle` exists for a future Fry-visible pass but is explicitly deferred.
 
+**Paint persistence — confirmed free.** `LandVehicle.OwnedColor`/`ApplyColor(EVehicleColor)` and `Persistence.Datas.VehicleData.Color` (a `string`) ride on vanilla's own vehicle save/load pipeline. A van spawned via `VehicleManager` and registered normally needs no custom persistence code — if the player repaints it (vanilla spray/customization), the choice survives save/load the same as any vanilla-owned vehicle.
+
+**Open:** exact `vehicleCode` string for the van model isn't derivable from `Assembly-CSharp.dll` alone (vehicle codes live in a Unity asset registry, not compiled IL) — needs confirming in-game before `DeliveryVehicles.SpawnVan` can be called with a real value.
+
 ---
 
 ## Aesthetic / Branding
@@ -50,7 +54,9 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 - **Company:** Global Real Quick Delivery
 - **Abbreviation:** GRQD
 - **Driver:** Fry (Futurama resemblance — orange/red hair, white shirt + red jacket vibe)
-- **Van:** Planet Express green (dark forest), rough hand-tagged GRQD logo on the sides
+- **Van:** teal (matches the app page branding), rough hand-tagged GRQD logo on the sides.
+  No literal "Teal" exists in vanilla's `EVehicleColor` enum — closest built-in value is
+  `Cyan` (`EVehicleColor.Cyan`), used as the default paint applied on spawn.
 - **Phone app page:** Planet Express teal, branded as Global Real Quick Delivery
 - **IP note:** Futurama / Planet Express is Fox/Disney IP. Character resemblance + rough logo = homage/parody (acceptable). Pixel-perfect logo copy = not acceptable. Keep the logo loose and hand-tagged, not a clean rip.
 - **Fry communications:** Fry texts the player via in-game messages using a Fry-lookalike avatar. No physical NPC spawn in v1.
@@ -156,13 +162,13 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 
 ## Middleware Layer
 
-Three files, each independently testable before integration:
+**`Middleware/DeliveryVehicles.cs`** — built. `SpawnVan(vehicleCode, position, rotation, playerOwned)` wraps `VehicleManager.SpawnAndReturnVehicle`, applies the default teal-substitute color (`EVehicleColor.Cyan`) via `LandVehicle.ApplyColor`. `vehicleCode` is a caller-supplied placeholder until confirmed in-game (see Spike Results above) — not hardcoded. Navigate wrapper over `VehicleAgent.Navigate` not yet added (waiting on integration step). Future hook point for `NPC.SetTransform` + `EnterVehicle` when Fry-visible is added.
 
-**`Middleware/Docks.cs`** — custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Pickup-side staging only, for product pending van pickup — not used as a delivery destination (destinations are vanilla `LoadingDock`s or the storefront).
+**`Middleware/DeliveryAppListing.cs`** — built, first draft, **not verified in-game**. Harmony prefix on `DeliveryApp.Start()` clones an existing `DeliveryShop` (we have no prefab of our own) and registers it into `deliveryShops` before vanilla builds the shop-list UI, so GRQD gets a tile the same way any other vendor does. Sets `ShopColor` to teal. Does **not** yet redirect `CanOrder`/`SubmitOrder` away from the cloned shop's vanilla buy/checkout flow — that's Route UX (build order step 5), a separate follow-up.
 
-**`Middleware/StorageTransfer.cs`** — locker-to-locker item move helper wrapping `ItemSlot` / `TryInsertItemIntoSet`. Generic: takes source `List<ItemSlot>` and dest `List<ItemSlot>`, moves N units of a given item type. Server-side. Reused by Clean Slate (dock to shelf).
+**`Middleware/Docks.cs`** — not yet built. Custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Pickup-side staging only, for product pending van pickup — not used as a delivery destination (destinations are vanilla `LoadingDock`s or the storefront).
 
-**`Middleware/DeliveryVehicles.cs`** — spawn + navigate wrapper over `VehicleManager.SpawnAndReturnVehicle` + `VehicleAgent.Navigate`. Van-only v1. Real road AI free via `VehicleAgent`. Future hook point for `NPC.SetTransform` + `EnterVehicle` when Fry-visible is added.
+**`Middleware/StorageTransfer.cs`** — not yet built. Locker-to-locker item move helper wrapping `ItemSlot` / `TryInsertItemIntoSet`. Generic: takes source `List<ItemSlot>` and dest `List<ItemSlot>`, moves N units of a given item type. Server-side. Reused by Clean Slate (dock to shelf).
 
 ---
 
@@ -176,6 +182,11 @@ Three files, each independently testable before integration:
    assignment — static inspection got close (found the tool + interface, `Property` exposing
    `Configurables`) but couldn't confirm the full implementor list from the interop metadata
    alone.
+5. Real `vehicleCode` string for the GRQD van model — needs an in-game look (vehicle codes
+   aren't in `Assembly-CSharp.dll`'s IL).
+6. Whether cloning an existing `DeliveryShop` for the app listing is the right long-term
+   approach, or whether it should be a from-scratch prefab once we know we need to fully
+   override `CanOrder`/`SubmitOrder` anyway.
 
 Not blocking, explicitly resolved as non-issues: exact dock world positions per property
 (arbitrary is fine), pay-locker location (app-assigned via clipboard-style selection, not
@@ -185,9 +196,11 @@ tied to route stops).
 
 ## Build Order
 
+0. `Middleware/DeliveryVehicles.cs` (van spawn + color) and `Middleware/DeliveryAppListing.cs`
+   (GRQD tile in the Delivery app) — built, first drafts, in-game verification pending.
 1. `Middleware/Docks.cs` — custom dock at fixed test position
 2. `Middleware/StorageTransfer.cs` — locker-to-locker transfer helper
-3. `Middleware/DeliveryVehicles.cs` — spawn + navigate wrapper
-4. Integration — wire all three into one end-to-end delivery loop, test in-game on Vortex against 0.4.6f9
-5. Route UX — GRQD phone app page (teal, up to 5 routes, pay locker designation, route status)
+3. Navigate wrapper over `VehicleAgent.Navigate`, folded into `DeliveryVehicles.cs`
+4. Integration — wire dock, transfer, and vehicle spawn/navigate into one end-to-end delivery loop, test in-game on Vortex against 0.4.6f9
+5. Route UX — GRQD phone app page (up to 5 routes, pay locker designation, route status), plus redirecting the cloned `DeliveryShop`'s `CanOrder`/`SubmitOrder` away from vanilla vendor checkout into GRQD's own route logic
 6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable

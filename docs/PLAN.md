@@ -49,18 +49,25 @@ the *currently maintained* S1API fork ships buggy custom-NPC code that needed ru
 patches, and the patcher itself crashed inside Mono.Cecil. Own layer only. See "Foundation
 Decision" in `docs/delivery-driver-spec.md`.
 
-#### DD2 — Build (six steps, per the spec's build order)
+#### DD2 — Build (per the spec's build order)
 
+0. `Middleware/DeliveryVehicles.cs` (van spawn, default teal-substitute color via
+   `EVehicleColor.Cyan`) and `Middleware/DeliveryAppListing.cs` (GRQD tile in the vanilla
+   Delivery phone app, via a Harmony prefix on `DeliveryApp.Start()` cloning an existing
+   `DeliveryShop`) — ✅ written, **not yet verified in-game**. Real van `vehicleCode` still a
+   placeholder (not derivable from `Assembly-CSharp.dll` alone). Listing entry still runs the
+   cloned shop's vanilla buy/checkout flow until Route UX (step 5) redirects it.
 1. `Middleware/Docks.cs` — custom dock via `ClassInjector`, fixed test position.
 2. `Middleware/StorageTransfer.cs` — locker-to-locker transfer helper.
-3. `Middleware/DeliveryVehicles.cs` — spawn + navigate wrapper.
+3. Navigate wrapper over `VehicleAgent.Navigate`, folded into `DeliveryVehicles.cs`.
 4. Integration — dock → transfer → van pickup → transfer as one tested loop, in-game on
    Vortex.
-5. Route UX — GRQD phone app page (teal branding, up to 5 routes, pay-locker assignment,
-   status). Likely mechanism found: `ManagementClipboard` + `IConfigurable` (equip tool,
-   point-select a world object, config UI opens) — the same pattern for both route
-   assignment and pay-locker assignment. Not fully confirmed (interop metadata didn't expose
-   the full `IConfigurable` implementor list) — verify in-game before building.
+5. Route UX — up to 5 routes, pay-locker assignment, status, and redirecting the cloned
+   `DeliveryShop`'s `CanOrder`/`SubmitOrder` into GRQD's own route logic. Likely mechanism
+   found: `ManagementClipboard` + `IConfigurable` (equip tool, point-select a world object,
+   config UI opens) — the same pattern for both route assignment and pay-locker assignment.
+   Not fully confirmed (interop metadata didn't expose the full `IConfigurable` implementor
+   list) — verify in-game before building.
 6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable.
 
 Not yet broken into tickets.
@@ -113,7 +120,8 @@ exists, this reverts to a Clean Slate milestone.
 
 ## Status
 
-Delivery Driver: DD0/DD1 done, DD2 not started (6-step build order in the spec).
+Delivery Driver: DD0/DD1 done, DD2 in progress — van spawn/color and Delivery-app listing
+written, not yet verified in-game; rest of the build order not started.
 Clean Slate: M0/M1 done (M1 fed into GRQD, not independent CS work anymore), M2 (storefront
 core) is next up, M3 needs a design pass (behavior on existing NPCs, not NPC creation),
 rent/income direction undecided

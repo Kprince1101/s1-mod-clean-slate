@@ -45,7 +45,7 @@ hard dependency is not).
 - `<ModName>/Middleware/` — that mod's middleware interface. See rule above.
 - `LocalPaths.targets.example` — shared local build config template (every mod builds
   against the same game install).
-- `PLAN.md` — feature roadmap and milestones, repo-wide.
+- `docs/PLAN.md` — feature roadmap and milestones, repo-wide.
 - `docs/` — specs, one per mod/feature, written before build work starts on that feature.
 
 Current mods: `CleanSlate/` (storefront/economy), `DeliveryDriver/` (logistics NPC, "Fry").

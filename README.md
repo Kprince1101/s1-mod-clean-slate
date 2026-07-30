@@ -1,7 +1,7 @@
 # S1 Mod Clean Slate
 
 Monorepo of from-scratch Schedule I mods, replacing OverTheCounter (abandoned). Read
-`AGENTS.md` for the standing rules and `PLAN.md` for the roadmap before touching anything.
+`AGENTS.md` for the standing rules and `docs/PLAN.md` for the roadmap before touching anything.
 
 No S1API, no fork of anyone else's community wrapper (KaBooMa's original or the ifBars
 fork), in any mod in this repo. Each mod writes its own thin middleware interface directly
@@ -12,9 +12,9 @@ that mod's actual features need. Beta branch only.
 ## Mods
 
 - `CleanSlate/` — storefront/economy mod. Spec: `docs/clean-slate-spec.md`. Status in
-  `PLAN.md`.
+  `docs/PLAN.md`.
 - `DeliveryDriver/` — Global Real Quick Delivery (GRQD), a van logistics mod (driver "Fry",
-  van-only in v1). Spec: `docs/delivery-driver-spec.md`. Status in `PLAN.md`.
+  van-only in v1). Spec: `docs/delivery-driver-spec.md`. Status in `docs/PLAN.md`.
 
 Each mod is independently shippable — its own DLL, its own Thunderstore listing, no hard
 dependency on the other (same pattern as OTC/OTCLoader).

@@ -1,3 +1,4 @@
+using HarmonyLib;
 using MelonLoader;
 
 [assembly: MelonInfo(typeof(DeliveryDriver.Plugin), "Global Real Quick Delivery", "0.0.1", "Legion", null)]
@@ -7,8 +8,12 @@ namespace DeliveryDriver
 {
     public class Plugin : MelonMod
     {
+        private Harmony? _harmony;
+
         public override void OnInitializeMelon()
         {
+            _harmony = new Harmony("DeliveryDriver");
+            _harmony.PatchAll(System.Reflection.Assembly.GetExecutingAssembly());
             LoggerInstance.Msg("Delivery Driver loaded.");
         }
     }
