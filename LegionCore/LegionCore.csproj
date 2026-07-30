@@ -6,8 +6,8 @@
 		<LangVersion>latest</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<AssemblyName>DeliveryDriver</AssemblyName>
-		<RootNamespace>DeliveryDriver</RootNamespace>
+		<AssemblyName>LegionCore</AssemblyName>
+		<RootNamespace>LegionCore</RootNamespace>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<IsPackable>false</IsPackable>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -15,21 +15,14 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\LegionCore\LegionCore.csproj" />
 		<Reference Include="MelonLoader"><HintPath>$(MelonLoaderNet6Path)\MelonLoader.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="0Harmony"><HintPath>$(MelonLoaderNet6Path)\0Harmony.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Il2CppInterop.Runtime"><HintPath>$(MelonLoaderNet6Path)\Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Il2Cppmscorlib"><HintPath>$(ManagedDllPath)\Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="UnityEngine"><HintPath>$(ManagedDllPath)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDllPath)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+		<Reference Include="UnityEngine.UI"><HintPath>$(ManagedDllPath)\UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Assembly-CSharp"><HintPath>$(ManagedDllPath)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Il2CppFishNet.Runtime"><HintPath>$(ManagedDllPath)\Il2CppFishNet.Runtime.dll</HintPath><Private>false</Private></Reference>
 	</ItemGroup>
-
-	<!-- Copy the built DLL and its LegionCore dependency straight to the dev profile's Mods folder after each build. -->
-	<Target Name="CopyToProfile" AfterTargets="Build" Condition="'$(ModOutputPath)' != ''">
-		<MakeDir Directories="$(ModOutputPath)" />
-		<Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(ModOutputPath)" />
-		<Copy SourceFiles="$(OutputPath)LegionCore.dll" DestinationFolder="$(ModOutputPath)" Condition="Exists('$(OutputPath)LegionCore.dll')" />
-	</Target>
 </Project>

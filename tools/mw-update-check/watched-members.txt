@@ -1,0 +1,30 @@
+# One Type.Member per line. Grow this every time LegionCore starts depending on a new
+# vanilla member. Blank lines and lines starting with # are ignored.
+
+ScheduleOne.Vehicles.VehicleManager.SpawnAndReturnVehicle
+ScheduleOne.Vehicles.LandVehicle.SendOwnedColor
+ScheduleOne.Vehicles.LandVehicle.OwnedColor
+
+ScheduleOne.UI.Phone.Delivery.DeliveryApp.deliveryShops
+ScheduleOne.UI.Phone.Delivery.DeliveryApp._shopElements
+ScheduleOne.UI.Phone.Delivery.DeliveryApp.DeliveryShopElement
+ScheduleOne.UI.Phone.Delivery.DeliveryApp.OpenShop
+ScheduleOne.UI.Phone.Delivery.DeliveryApp.CloseShop
+ScheduleOne.UI.Phone.Delivery.DeliveryShop.ShopColor
+ScheduleOne.UI.Phone.Delivery.DeliveryShop.MatchingShopInterfaceName
+ScheduleOne.UI.Phone.Delivery.DeliveryShop.AvailableByDefault
+ScheduleOne.UI.Phone.Delivery.DeliveryShop.ListingContainer
+ScheduleOne.UI.Phone.Delivery.DeliveryShop.OnSelect
+ScheduleOne.UI.Phone.Delivery.DeliveryShop.Initialize
+ScheduleOne.UI.Phone.Delivery.DeliveryShop.CanOrder
+
+ScheduleOne.DevUtilities.LoadManager.IsGameLoaded
+ScheduleOne.DevUtilities.LoadManager.LoadStatus
+ScheduleOne.DevUtilities.LoadManager.ELoadStatus
+
+ScheduleOne.PlayerScripts.Player.Local
+ScheduleOne.PlayerScripts.Player.PlayerBasePosition
+
+ScheduleOne.Persistence.SaveManager.GetVersionNumber
+
+ScheduleOne.UI.NotificationsManager.SendNotification

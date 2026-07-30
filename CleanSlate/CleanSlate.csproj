@@ -15,6 +15,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\LegionCore\LegionCore.csproj" />
 		<Reference Include="MelonLoader"><HintPath>$(MelonLoaderNet6Path)\MelonLoader.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="0Harmony"><HintPath>$(MelonLoaderNet6Path)\0Harmony.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Il2CppInterop.Runtime"><HintPath>$(MelonLoaderNet6Path)\Il2CppInterop.Runtime.dll</HintPath><Private>false</Private></Reference>
@@ -24,9 +25,10 @@
 		<Reference Include="Assembly-CSharp"><HintPath>$(ManagedDllPath)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
 	</ItemGroup>
 
-	<!-- Copy the built DLL straight to the dev profile's Mods folder after each build. -->
+	<!-- Copy the built DLL and its LegionCore dependency straight to the dev profile's Mods folder after each build. -->
 	<Target Name="CopyToProfile" AfterTargets="Build" Condition="'$(ModOutputPath)' != ''">
 		<MakeDir Directories="$(ModOutputPath)" />
 		<Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(ModOutputPath)" />
+		<Copy SourceFiles="$(OutputPath)LegionCore.dll" DestinationFolder="$(ModOutputPath)" Condition="Exists('$(OutputPath)LegionCore.dll')" />
 	</Target>
 </Project>

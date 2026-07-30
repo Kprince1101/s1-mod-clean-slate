@@ -51,23 +51,22 @@ Decision" in `docs/delivery-driver-spec.md`.
 
 #### DD2 — Build (per the spec's build order)
 
-0. `Middleware/DeliveryVehicles.cs` (van spawn, default teal-substitute color via
-   `EVehicleColor.Cyan`) and `Middleware/DeliveryAppListing.cs` (GRQD tile in the vanilla
-   Delivery phone app, via a Harmony prefix on `DeliveryApp.Start()` cloning an existing
-   `DeliveryShop`) — ✅ written, **not yet verified in-game**. Real van `vehicleCode` still a
-   placeholder (not derivable from `Assembly-CSharp.dll` alone). Listing entry still runs the
-   cloned shop's vanilla buy/checkout flow until Route UX (step 5) redirects it.
-1. `Middleware/Docks.cs` — custom dock via `ClassInjector`, fixed test position.
-2. `Middleware/StorageTransfer.cs` — locker-to-locker transfer helper.
-3. Navigate wrapper over `VehicleAgent.Navigate`, folded into `DeliveryVehicles.cs`.
+0. Van spawn/color (`LegionCore.Api.Vehicles.SpawnVan`, real color persistence via
+   `SendOwnedColor`) and the GRQD Delivery-app tile (`LegionCore.Api.Delivery.RegisterShopTile`,
+   fixed to inject into `_shopElements`, not just `deliveryShops`) — ✅ moved into `LegionCore`,
+   both bugs from the original `Middleware/` draft fixed using the real decompiled source.
+   **Not yet re-verified in-game post-move.** Ordering (`CanOrder`/`SubmitOrder`) is still
+   vanilla vendor-purchase logic, blocked via a Harmony prefix until step 5 redirects it.
+1. Docks — custom dock via `ClassInjector`, fixed test position.
+2. Storage transfer — locker-to-locker transfer helper.
+3. Navigate wrapper over `VehicleAgent.Navigate`, added to `LegionCore`'s vehicle domain.
 4. Integration — dock → transfer → van pickup → transfer as one tested loop, in-game on
    Vortex.
-5. Route UX — up to 5 routes, pay-locker assignment, status, and redirecting the cloned
-   `DeliveryShop`'s `CanOrder`/`SubmitOrder` into GRQD's own route logic. Likely mechanism
-   found: `ManagementClipboard` + `IConfigurable` (equip tool, point-select a world object,
-   config UI opens) — the same pattern for both route assignment and pay-locker assignment.
-   Not fully confirmed (interop metadata didn't expose the full `IConfigurable` implementor
-   list) — verify in-game before building.
+5. Route UX — up to 5 routes, pay-locker assignment, status, and redirecting GRQD's cloned
+   shop's `CanOrder`/`SubmitOrder` into its own route logic (needs a synthetic `ShopInterface`
+   — see `docs/shared-middleware-architecture.md` §6). `IConfigurable`'s enum is confirmed
+   closed (15 vanilla values, no mod slot) — default plan is to bypass `ManagementInterface`
+   for this, not patch the enum.
 6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable.
 
 Not yet broken into tickets.
@@ -78,7 +77,8 @@ Not yet broken into tickets.
 
 Minimal MelonLoader Il2Cpp plugin proving build → deploy → MelonLoader load → the middleware
 interface reaching into the game, end to end. Confirmed in-game via a real notification sent
-through `Middleware/Notifications.cs`.
+through the middleware (now `LegionCore`, moved from Clean Slate's own `Middleware/` folder
+once the shared-middleware architecture landed — see `docs/shared-middleware-architecture.md`).
 
 #### M1 — Delivery/dock spike ✅
 
@@ -121,7 +121,8 @@ exists, this reverts to a Clean Slate milestone.
 ## Status
 
 Delivery Driver: DD0/DD1 done, DD2 in progress — van spawn/color and Delivery-app listing
-written, not yet verified in-game; rest of the build order not started.
+moved into `LegionCore` with both known bugs fixed, not yet re-verified in-game; rest of the
+build order not started.
 Clean Slate: M0/M1 done (M1 fed into GRQD, not independent CS work anymore), M2 (storefront
 core) is next up, M3 needs a design pass (behavior on existing NPCs, not NPC creation),
 rent/income direction undecided

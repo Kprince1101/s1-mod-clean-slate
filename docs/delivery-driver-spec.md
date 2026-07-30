@@ -162,13 +162,33 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 
 ## Middleware Layer
 
-**`Middleware/DeliveryVehicles.cs`** — built, spawn confirmed working in-game (log showed the spawn call succeeding). First test used `Vector3.zero` as the drop point, which put it somewhere Legion couldn't find in-game (likely underground/void) — switched to spawning at `Player.Local.PlayerBasePosition + (5, 0, 5)` so the test van lands next to whoever's testing. Navigate wrapper over `VehicleAgent.Navigate` not yet added (waiting on integration step). Future hook point for `NPC.SetTransform` + `EnterVehicle` when Fry-visible is added.
+Delivery Driver no longer owns its own `Middleware/` folder — all game access now goes
+through the shared `LegionCore` project (see `docs/shared-middleware-architecture.md`).
 
-**`Middleware/DeliveryAppListing.cs`** — built, first draft, **known broken in-game**. Clones an existing `DeliveryShop` (we have no prefab of our own) and registers it into `deliveryShops`. First test (injecting via a `Start()` prefix): `deliveryShops.Count` reached 10 as expected, but `_shopElements.Count` (the actual rendered tile list) stayed at 9 — the tile list isn't driven live off `deliveryShops.Count` the way assumed, and it's built before `Start()` runs. Switched the injection to an `Awake()` prefix instead, with diagnostics logging all three counts after both `Awake()` and `Start()` to pin down exactly when the tile list gets built. Also does **not** yet redirect `CanOrder`/`SubmitOrder` away from the cloned shop's vanilla buy/checkout flow — that's Route UX (build order step 5), a separate follow-up.
+**`LegionCore.Vehicles` (`VehicleApi`/`VehicleFactory`)** — spawn confirmed working in-game
+(log showed the spawn call succeeding). First test used `Vector3.zero` as the drop point,
+which put it somewhere Legion couldn't find in-game (likely underground/void) — switched to
+spawning at `Player.Local.PlayerBasePosition + (5, 0, 5)`. Color now goes through
+`SendOwnedColor` (the real replicated/persisted path) instead of the cosmetic-only
+`ApplyColor` the first draft used. Navigate wrapper over `VehicleAgent.Navigate` not yet
+added (waiting on integration step). Future hook point for `NPC.SetTransform` + `EnterVehicle`
+when Fry-visible is added.
 
-**`Middleware/Docks.cs`** — not yet built. Custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Pickup-side staging only, for product pending van pickup — not used as a delivery destination (destinations are vanilla `LoadingDock`s or the storefront).
+**`LegionCore.Delivery` (`DeliveryApi`/`DeliveryShopTileFactory`)** — rewritten from the
+original first draft, which was **confirmed broken**: it injected into `deliveryShops` only,
+but the actual rendered tile list is `_shopElements` (private, `[SerializeField]`,
+Editor-populated only, zero runtime writers anywhere in vanilla — confirmed by direct read of
+the real decompiled `DeliveryApp.cs`/`DeliveryShop.cs`). The fix clones both a template
+`Button` and `DeliveryShop`, builds a real `DeliveryApp.DeliveryShopElement` pair, and injects
+it into `_shopElements` via a Harmony postfix on `DeliveryApp.Start()` (after vanilla's own
+loop already ran, not before via `Awake()` as the first draft tried). A Harmony prefix on
+`DeliveryShop.CanOrder` blocks ordering on managed shops (no real `ShopInterface` behind
+`MatchingShopInterfaceName` yet, so `WillCartFitInVehicle()` would otherwise NPE) until Route
+UX (build order step 5) wires up real order logic. **Not yet re-verified in-game.**
 
-**`Middleware/StorageTransfer.cs`** — not yet built. Locker-to-locker item move helper wrapping `ItemSlot` / `TryInsertItemIntoSet`. Generic: takes source `List<ItemSlot>` and dest `List<ItemSlot>`, moves N units of a given item type. Server-side. Reused by Clean Slate (dock to shelf).
+**Docks** — not yet built. Custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Pickup-side staging only, for product pending van pickup — not used as a delivery destination (destinations are vanilla `LoadingDock`s or the storefront).
+
+**Storage transfer** — not yet built. Locker-to-locker item move helper wrapping `ItemSlot` / `TryInsertItemIntoSet`. Generic: takes source `List<ItemSlot>` and dest `List<ItemSlot>`, moves N units of a given item type. Server-side. Reused by Clean Slate (dock to shelf).
 
 ---
 
