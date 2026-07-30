@@ -1,6 +1,4 @@
-using System.Text;
 using Il2CppScheduleOne.UI.Phone.Delivery;
-using MelonLoader;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -11,9 +9,17 @@ namespace LegionCore.Delivery
     // list Start() iterates, private, editor-populated only, zero runtime writers in vanilla.
     internal static class DeliveryShopTileFactory
     {
-        private static bool _hierarchyLogged;
-
-        public static bool TryCreateTile(DeliveryApp app, string shopName, Color tileColor, string shopInterfaceName, out DeliveryShop? shop, out Button? button)
+        // Confirmed via a real in-game hierarchy dump (now removed - this is the answer it
+        // gave): the cloned button is
+        //   <button root> (Image = colored bar background, Button)
+        //     - Icon
+        //       - Image        <- portrait/icon graphic
+        //     - Title          <- Text, shop name
+        //     - Description    <- Text, shop subtitle
+        //     - Arrow
+        //     - SelectedFrame
+        public static bool TryCreateTile(DeliveryApp app, string shopName, Color tileColor, string shopInterfaceName,
+            string description, Sprite? icon, out DeliveryShop? shop, out Button? button)
         {
             shop = null;
             button = null;
@@ -27,23 +33,22 @@ namespace LegionCore.Delivery
             newButton.name = shopName + "_Button";
             newButton.onClick.RemoveAllListeners();
 
-            // TEMP diagnostic: the cloned button still shows the template's own name/
-            // description text (nothing overwrites it yet - ShopColor on DeliveryShop is
-            // never actually read by vanilla code, it's not a real recolor hook). Dump the
-            // clone's child hierarchy + any Text values once so we know exactly which
-            // component to rename instead of guessing. Remove once the real label-set call
-            // replaces this.
-            if (!_hierarchyLogged)
-            {
-                _hierarchyLogged = true;
-                var sb = new StringBuilder("LegionCore: cloned button hierarchy for '" + shopName + "':\n");
-                DumpHierarchy(newButton.transform, 0, sb);
-                MelonLogger.Msg(sb.ToString());
-            }
+            // ShopColor on DeliveryShop itself is never read by vanilla code (not a real
+            // recolor hook) - the button's own background Image is the actual color source.
+            var background = newButton.GetComponent<Image>();
+            if (background != null) background.color = tileColor;
+
+            var titleText = newButton.transform.Find("Title")?.GetComponent<Text>();
+            if (titleText != null) titleText.text = shopName;
+
+            var descriptionText = newButton.transform.Find("Description")?.GetComponent<Text>();
+            if (descriptionText != null) descriptionText.text = description;
+
+            var iconImage = newButton.transform.Find("Icon/Image")?.GetComponent<Image>();
+            if (iconImage != null && icon != null) iconImage.sprite = icon;
 
             var newShop = UnityEngine.Object.Instantiate(template.Shop, template.Shop.transform.parent);
             newShop.name = shopName + "_Shop";
-            newShop.ShopColor = tileColor;
             newShop.MatchingShopInterfaceName = shopInterfaceName;
             newShop.AvailableByDefault = true;
 
@@ -62,6 +67,14 @@ namespace LegionCore.Delivery
             // System.Delegate.Combine doesn't apply to them at all.
             newButton.onClick.AddListener((UnityAction)(() => app.OpenShop(newShop)));
             newShop.OnSelect = (Il2CppSystem.Action<DeliveryShop>)app.CloseShop;
+
+            // DeliveryShop.Initialize() looks up MatchingShop by shopInterfaceName and, if
+            // nothing matches (always true for us with shopInterfaceName left blank), logs an
+            // error and returns BEFORE it ever wires BackButton.onClick - confirmed by reading
+            // the decompiled source, and matches exactly what was reported ("back button
+            // doesn't work"). Wire it ourselves so navigation works regardless of whether a
+            // real ShopInterface exists yet.
+            WireBackButton(app, newShop);
             newShop.Initialize();
 
             shop = newShop;
@@ -69,17 +82,10 @@ namespace LegionCore.Delivery
             return true;
         }
 
-        private static void DumpHierarchy(Transform t, int depth, StringBuilder sb)
+        private static void WireBackButton(DeliveryApp app, DeliveryShop newShop)
         {
-            var text = t.GetComponent<Text>();
-            sb.Append(' ', depth * 2).Append("- ").Append(t.name);
-            if (text != null) sb.Append(" [Text=\"").Append(text.text).Append("\"]");
-            sb.Append('\n');
-
-            // Index-based GetChild, not foreach - same Il2CppInterop enumerator-cast issue as
-            // the ListingContainer cleanup above.
-            for (int i = 0; i < t.childCount; i++)
-                DumpHierarchy(t.GetChild(i), depth + 1, sb);
+            if (newShop.BackButton == null) return;
+            newShop.BackButton.onClick.AddListener((UnityAction)(() => app.CloseShop(newShop)));
         }
     }
 }

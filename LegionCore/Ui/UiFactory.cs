@@ -93,9 +93,44 @@ namespace LegionCore.Ui
         public static Button? InstallHomeScreenIcon(string label, System.Action onClick, Sprite? icon = null, string name = "HomeIcon")
         {
             if (!HomeScreen.InstanceExists) return null;
+            var homeScreen = HomeScreen.Instance;
 
-            var container = GetMemberValue<RectTransform>(HomeScreen.Instance, "appIconContainer");
+            var container = GetMemberValue<RectTransform>(homeScreen, "appIconContainer");
             if (container == null) return null;
+
+            // Prefer cloning the REAL vanilla icon prefab - same Instantiate + Find("Mask/
+            // Image")/Find("Label") pattern App<T>.GenerateHomeScreenIcon uses (confirmed from
+            // the decompiled source), just done by hand instead of through App<T>. Gives
+            // identical sizing/masking/label placement to every other home-screen icon. Falls
+            // back to a hand-built button only if the prefab field can't be found or the
+            // expected children aren't there - still functional, just plainer.
+            var prefab = GetMemberValue<GameObject>(homeScreen, "appIconPrefab");
+            if (prefab != null)
+            {
+                var clone = UnityEngine.Object.Instantiate(prefab, container);
+                clone.name = name;
+
+                var iconImage = clone.transform.Find("Mask/Image")?.GetComponent<Image>();
+                var labelText = clone.transform.Find("Label")?.GetComponent<Text>();
+                var clonedButton = clone.GetComponent<Button>();
+
+                if (iconImage != null && labelText != null && clonedButton != null)
+                {
+                    if (icon != null) iconImage.sprite = icon;
+                    labelText.text = label;
+
+                    // Vanilla apps use this for unread-message-style badges - not relevant to
+                    // us, hide it so a stray "0" doesn't show.
+                    var notifications = clone.transform.Find("Notifications");
+                    if (notifications != null) notifications.gameObject.SetActive(false);
+
+                    clonedButton.onClick.RemoveAllListeners();
+                    clonedButton.onClick.AddListener((UnityAction)onClick);
+                    return clonedButton;
+                }
+
+                UnityEngine.Object.Destroy(clone);
+            }
 
             var button = CreateButton(container, label, onClick, name);
             if (icon != null)
@@ -129,6 +164,46 @@ namespace LegionCore.Ui
             var tex = new Texture2D(size, size);
             var pixels = new Color[size * size];
             for (int i = 0; i < pixels.Length; i++) pixels[i] = color;
+            tex.SetPixels(pixels);
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+        }
+
+        // Procedural placeholder logo - a white ringed planet (Planet Express-adjacent, per
+        // request) on a flat color background, drawn pixel-by-pixel since there's no way to
+        // ship real art assets from here. Meant to be swapped for hand-drawn art later: if a
+        // real PNG shows up, load it via File.ReadAllBytes + Texture2D.LoadImage instead and
+        // this call site doesn't need to change (still returns a Sprite either way).
+        public static Sprite CreateAppIconSprite(Color background, int size = 128)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var pixels = new Color[size * size];
+
+            var center = new Vector2(size / 2f, size * 0.47f);
+            float planetRadius = size * 0.20f;
+            float ringRadiusX = size * 0.38f;
+            float ringRadiusY = size * 0.12f;
+            float ringThickness = size * 0.05f;
+            float ringAngleRad = -16f * Mathf.Deg2Rad;
+            float cos = Mathf.Cos(-ringAngleRad);
+            float sin = Mathf.Sin(-ringAngleRad);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    var p = new Vector2(x + 0.5f, y + 0.5f) - center;
+                    bool onPlanet = p.magnitude <= planetRadius;
+
+                    // Rotate into ring-local space so the ring reads as tilted, not a flat oval.
+                    var rp = new Vector2(p.x * cos - p.y * sin, p.x * sin + p.y * cos);
+                    float ringNorm = Mathf.Sqrt((rp.x * rp.x) / (ringRadiusX * ringRadiusX) + (rp.y * rp.y) / (ringRadiusY * ringRadiusY));
+                    bool onRing = Mathf.Abs(ringNorm - 1f) * Mathf.Min(ringRadiusX, ringRadiusY) <= ringThickness;
+
+                    pixels[y * size + x] = (onPlanet || onRing) ? Color.white : background;
+                }
+            }
+
             tex.SetPixels(pixels);
             tex.Apply();
             return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));

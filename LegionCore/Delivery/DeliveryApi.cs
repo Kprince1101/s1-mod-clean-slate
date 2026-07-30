@@ -8,21 +8,22 @@ namespace LegionCore.Delivery
 {
     internal sealed class DeliveryApi : IDeliveryApi
     {
-        private static readonly List<(string Name, Color Color, string ShopInterfaceName)> PendingTiles = new();
+        private static readonly List<(string Name, Color Color, string ShopInterfaceName, string Description, Sprite? Icon)> PendingTiles = new();
         private static readonly HashSet<DeliveryShop> ManagedShops = new();
 
         public bool IsReady => Readiness.Check();
 
-        public void RegisterShopTile(string shopName, Color tileColor, string shopInterfaceName) =>
-            PendingTiles.Add((shopName, tileColor, shopInterfaceName));
+        public void RegisterShopTile(string shopName, Color tileColor, string shopInterfaceName,
+            string description = "", Sprite? icon = null) =>
+            PendingTiles.Add((shopName, tileColor, shopInterfaceName, description, icon));
 
         internal static bool IsManaged(DeliveryShop shop) => ManagedShops.Contains(shop);
 
         internal static void InstallPendingTiles(DeliveryApp app)
         {
-            foreach (var (name, color, shopInterfaceName) in PendingTiles)
+            foreach (var (name, color, shopInterfaceName, description, icon) in PendingTiles)
             {
-                if (DeliveryShopTileFactory.TryCreateTile(app, name, color, shopInterfaceName, out var shop, out _))
+                if (DeliveryShopTileFactory.TryCreateTile(app, name, color, shopInterfaceName, description, icon, out var shop, out _))
                 {
                     ManagedShops.Add(shop!);
                     MelonLogger.Msg($"LegionCore: registered delivery shop tile '{name}'.");

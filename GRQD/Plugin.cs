@@ -43,8 +43,11 @@ namespace GRQD
             // Queued immediately - LegionCore installs it the next time DeliveryApp.Start()
             // fires, whenever that is. shopInterfaceName left blank: LegionCore blocks
             // ordering on any managed shop with no real ShopInterface, so this is safe until
-            // real order-flow work wires one up (see LegionCore/Interfaces.cs).
-            Api.Delivery.RegisterShopTile(ShopName, ShopColor, string.Empty);
+            // real order-flow work wires one up (see LegionCore/Interfaces.cs). Name/color/
+            // icon now actually apply to the cloned tile (see DeliveryShopTileFactory) - a
+            // real in-game hierarchy dump confirmed exactly which child Text/Image to hit.
+            Api.Delivery.RegisterShopTile(ShopName, ShopColor, string.Empty,
+                "Same-Day Product Delivery", UiFactory.CreateAppIconSprite(ShopColor));
 
             LoggerInstance.Msg("GRQD loaded, waiting for NotificationsManager...");
         }
@@ -64,7 +67,7 @@ namespace GRQD
 
                 var panel = new GameObject("GRQDPanel").AddComponent<GRQDPanel>();
                 var icon = UiFactory.InstallHomeScreenIcon("GRQD", panel.Toggle,
-                    UiFactory.CreateSolidSprite(ShopColor), "GRQD_HomeIcon");
+                    UiFactory.CreateAppIconSprite(ShopColor), "GRQD_HomeIcon");
                 LoggerInstance.Msg(icon != null
                     ? "GRQD: home-screen icon installed."
                     : "GRQD: failed to install home-screen icon (appIconContainer not found via reflection).");

@@ -17,8 +17,10 @@ namespace LegionCore
         // Registers a tile in the vanilla Delivery app's shop list. Runs the next time
         // DeliveryApp.Start() fires (or immediately if it already has). shopInterfaceName
         // with no matching ShopInterface is fine for now - the shop opens with no listings
-        // and ordering is blocked, until a real order-flow ticket wires one up.
-        void RegisterShopTile(string shopName, Color tileColor, string shopInterfaceName);
+        // and ordering is blocked, until a real order-flow ticket wires one up. description
+        // and icon are optional (icon falls back to whatever the cloned template tile had).
+        void RegisterShopTile(string shopName, Color tileColor, string shopInterfaceName,
+            string description = "", Sprite? icon = null);
     }
 
     public interface INpcApi
