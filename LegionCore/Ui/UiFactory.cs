@@ -55,7 +55,11 @@ namespace LegionCore.Ui
             return text;
         }
 
-        public static Button CreateButton(Transform parent, string label, UnityAction onClick, string name = "Button")
+        // Takes a real System.Action, not UnityAction - under Il2CppInterop, UnityAction (like
+        // Il2CppSystem.Action<T> - see DeliveryShopTileFactory's OnSelect cast) isn't a true
+        // delegate type, so a bare lambda can't implicitly convert to it at the call site. One
+        // explicit cast here beats needing (UnityAction)(() => ...) at every call site.
+        public static Button CreateButton(Transform parent, string label, System.Action onClick, string name = "Button")
         {
             var go = new GameObject(name);
             go.AddComponent<RectTransform>();
@@ -63,7 +67,7 @@ namespace LegionCore.Ui
             var image = go.AddComponent<Image>();
             image.color = new Color(1f, 1f, 1f, 0.15f);
             var button = go.AddComponent<Button>();
-            button.onClick.AddListener(onClick);
+            button.onClick.AddListener((UnityAction)onClick);
 
             var label_ = CreateText(go.transform, label, 20, "Label");
             label_.alignment = TextAnchor.MiddleCenter;
