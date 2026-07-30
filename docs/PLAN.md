@@ -5,7 +5,7 @@ game access, no narrative comments, ticket-per-change, PR workflow, beta-only). 
 the repo-wide roadmap; per-mod/per-feature specs live in `docs/`.
 
 This repo is a monorepo of independently-shippable mods — see `AGENTS.md` for the
-OTC/OTCLoader-style structure. Two mods so far: `CleanSlate/` and `DeliveryDriver/`.
+OTC/OTCLoader-style structure. Two mods so far: `CleanSlate/` and `GRQD/`.
 
 ## Concept
 
@@ -13,13 +13,13 @@ OTC/OTCLoader-style structure. Two mods so far: `CleanSlate/` and `DeliveryDrive
 sell product. Businesses the player owns generate income and cost rent weekly. Full spec:
 `docs/clean-slate-spec.md`.
 
-**Delivery Driver (Global Real Quick Delivery / GRQD, driver "Fry"):** a van service with up
-to 5 independently-scheduled routes, moving owned product from a source locker/shelf to a
-vanilla dock (or the storefront, with Clean Slate), pay collected at each route's first
-stop. v1 is van-only — no physical Fry NPC spawn, he texts the player via an avatar instead.
-Fully standalone — no dependency on Clean Slate. Full spec: `docs/delivery-driver-spec.md`.
+**GRQD (Global Real Quick Delivery):** a van service with up to 5 independently-scheduled
+routes, moving owned product from a source locker/shelf to a vanilla dock (or the storefront,
+with Clean Slate), pay collected at each route's first stop. Van-only — no driver NPC, the
+van moves on its own. Fully standalone — no dependency on Clean Slate. Full spec:
+`docs/grqd-spec.md`.
 
-Build order: **Delivery Driver first, and it's not just about de-risking shared
+Build order: **GRQD first, and it's not just about de-risking shared
 capabilities (custom dock placement, storage transfer, vehicle spawn/navigation).** The real
 reason: **Clean Slate depends on GRQD to be practically playable.** Not a hard technical
 requirement — Clean Slate won't crash without it — but without automated delivery the player
@@ -35,32 +35,38 @@ scaffolded, not decided — parked here until it's worth committing to.
 
 ## Milestones
 
-### Delivery Driver
+### GRQD
 
-#### DD0 — Foundation ✅
+#### GRQD0 — Foundation ✅
 
-Minimal MelonLoader Il2Cpp plugin scaffold in `DeliveryDriver/`, same pattern as Clean
+Minimal MelonLoader Il2Cpp plugin scaffold in `GRQD/`, same pattern as Clean
 Slate's M0. Proves the second mod builds and loads independently in the monorepo.
 
-#### DD1 — Own-layer vs. S1API decision ✅
+#### GRQD1 — Own-layer vs. S1API decision ✅
 
 Decided, not just recommended: no bake-off. OTC's crash chain traced into `PatchS1APIBugs` —
 the *currently maintained* S1API fork ships buggy custom-NPC code that needed runtime IL
 patches, and the patcher itself crashed inside Mono.Cecil. Own layer only. See "Foundation
-Decision" in `docs/delivery-driver-spec.md`.
+Decision" in `docs/grqd-spec.md`.
 
-#### DD2 — Build (six steps, per the spec's build order)
+#### GRQD2 — Build (per the spec's build order)
 
-1. `Middleware/Docks.cs` — custom dock via `ClassInjector`, fixed test position.
-2. `Middleware/StorageTransfer.cs` — locker-to-locker transfer helper.
-3. `Middleware/DeliveryVehicles.cs` — spawn + navigate wrapper.
+0. Van spawn/color (`LegionCore.Api.Vehicles.SpawnVan`, real color persistence via
+   `SendOwnedColor`) and the GRQD Delivery-app tile (`LegionCore.Api.Delivery.RegisterShopTile`,
+   fixed to inject into `_shopElements`, not just `deliveryShops`) — ✅ moved into `LegionCore`,
+   both bugs from the original `Middleware/` draft fixed using the real decompiled source.
+   **Not yet re-verified in-game post-move.** Ordering (`CanOrder`/`SubmitOrder`) is still
+   vanilla vendor-purchase logic, blocked via a Harmony prefix until step 5 redirects it.
+1. Docks — custom dock via `ClassInjector`, fixed test position.
+2. Storage transfer — locker-to-locker transfer helper.
+3. Navigate wrapper over `VehicleAgent.Navigate`, added to `LegionCore`'s vehicle domain.
 4. Integration — dock → transfer → van pickup → transfer as one tested loop, in-game on
    Vortex.
-5. Route UX — GRQD phone app page (teal branding, up to 5 routes, pay-locker assignment,
-   status). Likely mechanism found: `ManagementClipboard` + `IConfigurable` (equip tool,
-   point-select a world object, config UI opens) — the same pattern for both route
-   assignment and pay-locker assignment. Not fully confirmed (interop metadata didn't expose
-   the full `IConfigurable` implementor list) — verify in-game before building.
+5. Route UX — up to 5 routes, pay-locker assignment, status, and redirecting GRQD's cloned
+   shop's `CanOrder`/`SubmitOrder` into its own route logic (needs a synthetic `ShopInterface`
+   — see `docs/shared-middleware-architecture.md` §6). `IConfigurable`'s enum is confirmed
+   closed (15 vanilla values, no mod slot) — default plan is to bypass `ManagementInterface`
+   for this, not patch the enum.
 6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable.
 
 Not yet broken into tickets.
@@ -71,7 +77,8 @@ Not yet broken into tickets.
 
 Minimal MelonLoader Il2Cpp plugin proving build → deploy → MelonLoader load → the middleware
 interface reaching into the game, end to end. Confirmed in-game via a real notification sent
-through `Middleware/Notifications.cs`.
+through the middleware (now `LegionCore`, moved from Clean Slate's own `Middleware/` folder
+once the shared-middleware architecture landed — see `docs/shared-middleware-architecture.md`).
 
 #### M1 — Delivery/dock spike ✅
 
@@ -86,9 +93,9 @@ ownership/buy-unlock flow, on-site product storage. This is Clean Slate's real s
 point now that delivery is GRQD's job, not a separate mechanic Clean Slate builds itself.
 
 - Delivery *into* the storefront's on-site storage is a GRQD concern (a route's finish can
-  target the storefront, per the delivery-driver spec) — Clean Slate doesn't build its own
+  target the storefront, per the GRQD spec) — Clean Slate doesn't build its own
   delivery/dock logic. `docs/delivery-dock-spec.md`'s API findings (dock placement, storage
-  transfer, vehicle spawn) live in DD2's build, not here.
+  transfer, vehicle spawn) live in GRQD2's build, not here.
 - Not yet broken into tickets.
 
 #### M3 — Dealer-as-counter loop
@@ -99,7 +106,7 @@ to the storefront. **Correction:** this is controlling/redirecting *existing* va
 NPCs the player already hires — not creating new custom NPCs. No NPC-creation spike needed
 here after all; the risky OTC-crashing capability (spawning brand-new custom NPCs) doesn't
 apply to M3. Dealer-behavior modification specifically is proven working by an existing mod
-(High Baller, referenced in the delivery-driver spec's prior-art note) — still needs its own
+(High Baller, referenced in the GRQD spec's prior-art note) — still needs its own
 design pass for the storefront-specific behavior (redirect, walk-to-storage, counter
 interaction), just not a from-scratch NPC-creation spike.
 
@@ -113,7 +120,9 @@ exists, this reverts to a Clean Slate milestone.
 
 ## Status
 
-Delivery Driver: DD0/DD1 done, DD2 not started (6-step build order in the spec).
+GRQD: GRQD0/GRQD1 done, GRQD2 in progress — van spawn/color and Delivery-app listing
+moved into `LegionCore` with both known bugs fixed, not yet re-verified in-game; rest of the
+build order not started.
 Clean Slate: M0/M1 done (M1 fed into GRQD, not independent CS work anymore), M2 (storefront
 core) is next up, M3 needs a design pass (behavior on existing NPCs, not NPC creation),
 rent/income direction undecided

@@ -11,16 +11,18 @@ namespace CleanSlate
 
         public override void OnInitializeMelon()
         {
+            LegionCore.Api.Initialize();
             LoggerInstance.Msg("Clean Slate loaded, waiting for NotificationsManager...");
         }
 
         public override void OnUpdate()
         {
-            if (_sent) return;
-            if (!Middleware.Notifications.IsReady) return;
+            LegionCore.Api.CheckVersion();
 
-            Middleware.Notifications.Send("Clean Slate", "Plugin loaded and wrapper is working.");
-            LoggerInstance.Msg("Clean Slate: sent proof-of-life notification via the middleware interface.");
+            if (_sent || !LegionCore.Api.Notifications.IsReady) return;
+
+            LegionCore.Api.Notifications.Send("Clean Slate", "Plugin loaded and wrapper is working.");
+            LoggerInstance.Msg("Clean Slate: sent proof-of-life notification via LegionCore.");
             _sent = true;
         }
     }

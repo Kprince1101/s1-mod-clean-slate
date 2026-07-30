@@ -2,3 +2,7 @@ bin/
 obj/
 *.user
 LocalPaths.targets
+
+# Vanilla game assemblies + decompiled source, for local reference only. Never commit
+# someone else's proprietary game code, even privately.
+reference/

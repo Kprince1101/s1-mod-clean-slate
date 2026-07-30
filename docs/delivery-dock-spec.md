@@ -68,7 +68,8 @@ direct placement, and `EnterVehicle(conn, LandVehicle)` puts an NPC in a vehicle
 required for a first version — a driverless/auto-piloted van (as several vanilla delivery
 vehicles already effectively are) is a valid v1 scope cut.
 
-**Verdict: feasible**, both for the vehicle and, if wanted later, a driver NPC.
+**Verdict: feasible for the vehicle.** GRQD is van-only — no driver NPC, no `NPC.SetTransform`/
+`EnterVehicle` usage; the van moves on its own via `VehicleAgent.Navigate`.
 
 ## What this unblocks
 
@@ -77,7 +78,6 @@ requires deep engine-level work or reverse-engineering beyond what's already bee
 
 ## Still open (needs a decision, not a spike)
 
-- Whether v1 includes a visible driver NPC ("Fry") or is van-only.
 - Where a modded dock visually/physically sits relative to a zone (needs actual placement
   design, not just API feasibility).
 - Whether business income/rent (see `PLAN.md`) hooks into `Business.MinsPass`/`TimeSkipped`
