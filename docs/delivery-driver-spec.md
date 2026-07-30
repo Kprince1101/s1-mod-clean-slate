@@ -60,52 +60,86 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 ## Core Mechanics (v1.0 — the public release)
 
 ### Routes
-- Player assigns up to 5 routes
-- A route = source property/locker to destination property/storage
-- Driver cycles through assigned routes on repeat
-- Van spawns at the source dock, product is loaded, van navigates to destination via real road AI, product is delivered
+- Player defines up to 5 routes. Definition pattern intentionally mirrors the vanilla
+  Handler system's existing route setup, so GRQD's UX feels native instead of reinventing
+  one — **not yet spiked**: a static keyword search of `Assembly-CSharp.dll` for `Handler`
+  found no logistics/dead-drop system by that name (only UI/dialogue/effect handlers). The
+  vanilla system this refers to exists under some other class name — needs an in-game or
+  broader static look before Route UX gets built, don't guess the data model from the name
+  alone.
+- Each route is defined independently, in two separate steps:
+  1. **Schedule** — daily, weekly, etc. Cost scales with cadence (exact cost table TBD).
+  2. **Start and finish**, set separately:
+     - **Start** — a storage unit (property), optionally a specific locker/shelf within it.
+     - **Finish** — without Clean Slate: any owned property's vanilla `LoadingDock` that
+       isn't full. With Clean Slate installed: the storefront is also a valid finish.
+- Each route runs on its **own** configured schedule — not one shared cycle across all 5. A
+  daily route fires every day regardless of what a weekly route is doing.
 
-### The custom dock
-- Our own dock `MonoBehaviour`, spawned at a fixed street-side position per property type (v1 hardcoded defaults):
-  - Manor: outside the gate
-  - Bungalow: street-side
-  - Storage unit: street-side
-- Player does not place it in v1 — fixed positions only, kinks ironed out on known locations first
-- The dock is a staging point: product is debited from the source locker into the dock staging area, the van loads from there
+### Pickup docks — source-side only, not a general dock
+- Our own dock `MonoBehaviour`, spawned at a fixed street-side position per property type
+  (v1 hardcoded defaults): Manor outside the gate, Bungalow/storage unit street-side. Player
+  doesn't place it in v1.
+- **This dock is pickup-only.** It exists solely as a staging point at a route's *start*: the
+  van loads from it after product is debited from the source locker/shelf into it. It is not
+  a delivery destination and has no function beyond that one job.
+- **Destinations are vanilla docks, not ours.** A route's *finish* targets an existing
+  `Il2CppScheduleOne.Delivery.LoadingDock` already on the destination property (or the
+  storefront, with Clean Slate) — not a second instance of our pickup dock.
+
+### Destination capacity check
+- "Not full" is checked with the vanilla API already identified in the M1 spike:
+  `DeliveryManager.IsLoadingBayFree(Property destination, int loadingDockIndex)`. No need to
+  write our own capacity logic for vanilla-dock destinations. Clean Slate storefront capacity
+  check is separate, TBD in that mod.
 
 ### Product movement
-- Source locker to dock staging: `StorageTransfer` helper (server-side `TryInsertItemIntoSet`)
-- Dock to van: van loads from the dock on arrival
-- Van to destination storage: `StorageTransfer` on arrival at destination
+- Source locker/shelf to pickup-dock staging: `StorageTransfer` (server-side
+  `TryInsertItemIntoSet`)
+- Pickup dock to van: van loads from the dock on arrival
+- Van to destination `LoadingDock`/storefront storage: `StorageTransfer` on arrival
 - Moves owned product only — does not create product
 
 ### Payment
-- Driver paid daily flat wage (configurable, sits between chemist and street-dealer rates)
-- Pay pulled from a player-designated locker at any owned property
+- No separately-designated pay locker. Pay lives at the route's **first stop** (the pickup) —
+  Fry collects his wage from a locker there as part of that stop, cost scaled to the route's
+  schedule (see Routes above).
+- **Open question, not yet resolved:** does "first stop" mean *each route's own* pickup has
+  its own pay locker, or is it *one* locker at whichever route happens to run first on a
+  given day (when multiple routes' schedules overlap)? Materially different data model
+  (per-route pay locker vs. one global pay locker) — needs a decision before build, not a
+  guess.
 - Empty pay locker behavior: TBD (warn player, driver stops — decide in build)
 
-### Delivery loop (one route cycle)
-1. Route timer fires
-2. Check source locker has product, debit via StorageTransfer to dock staging
-3. Spawn GRQD van at the custom dock
-4. Van navigates to destination via `VehicleAgent.Navigate` (real road AI)
-5. Credit destination storage via StorageTransfer on arrival
-6. Deduct daily wage from pay locker
+### Delivery loop (one route's run)
+1. That route's configured schedule fires (independent per route)
+2. Check source locker/shelf has product, debit via `StorageTransfer` to the pickup dock
+3. Spawn GRQD van at the pickup dock; collect wage from the locker there (see open question
+   above on scope)
+4. Van navigates to the destination `LoadingDock`/storefront via `VehicleAgent.Navigate`
+5. Check destination not full (`IsLoadingBayFree` for vanilla dock destinations; storefront
+   check TBD)
+6. Credit destination storage via `StorageTransfer`
 7. Van despawns
-8. Cycle to next route
 
 ---
 
 ## Standalone + Integration
 
-- **Works with vanilla Schedule I** — general-purpose logistics for any multi-property operation
-- **Clean-Slate-aware** — when Clean Slate is installed, GRQD can supply the storefront's on-site storage. Neither mod requires the other. Optional integration, no hard dependency either direction.
+- **GRQD is fully standalone.** Works with vanilla Schedule I, no dependency on Clean Slate,
+  general-purpose logistics for any multi-property operation.
+- **The dependency runs one direction.** Clean Slate doesn't hard-require GRQD installed to
+  function, but its core loop assumes it: without automated delivery the player is stuck
+  manually restocking constantly, which defeats running an actual storefront operation.
+  That's the real reason GRQD is built first — not just de-risking shared capabilities, but
+  because Clean Slate isn't practically playable without it. "Highly suggested," not
+  hard-enforced.
 
 ---
 
 ## v1 Scope Line
 
-**In:** GRQD van, up to 5 repeatable routes, product movement between locations, custom fixed-position docks per property type, daily pay from designated locker, Fry texts via avatar, GRQD branding + Planet Express teal app page, vanilla-compatible, Clean-Slate-aware.
+**In:** GRQD van, up to 5 independently-scheduled routes, product movement between a source locker/shelf and a vanilla `LoadingDock` (or storefront, with Clean Slate), pickup-only custom staging dock, pay collected at each route's first stop, Fry texts via avatar, GRQD branding + Planet Express teal app page, vanilla-compatible, Clean-Slate-aware.
 
 **Explicitly deferred:** visible Fry NPC in van, player-placed dock positioning, load-capacity limits per trip, multiple drivers, in-van handler NPC walking to grab product.
 
@@ -115,7 +149,7 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 
 Three files, each independently testable before integration:
 
-**`Middleware/Docks.cs`** — custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Staging area for product pending van pickup.
+**`Middleware/Docks.cs`** — custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Pickup-side staging only, for product pending van pickup — not used as a delivery destination (destinations are vanilla `LoadingDock`s or the storefront).
 
 **`Middleware/StorageTransfer.cs`** — locker-to-locker item move helper wrapping `ItemSlot` / `TryInsertItemIntoSet`. Generic: takes source `List<ItemSlot>` and dest `List<ItemSlot>`, moves N units of a given item type. Server-side. Reused by Clean Slate (dock to shelf).
 
@@ -126,9 +160,15 @@ Three files, each independently testable before integration:
 ## Open Questions (decide in build, not before)
 
 1. Can a van get robbed mid-route, or is it inherently safe?
-2. Empty pay locker behavior — warn and stop, or warn and continue?
-3. Load capacity per trip — unlimited v1, or limit from the start?
-4. Exact fixed dock world positions per property type (needs in-game measurement on Vortex)
+2. Pay-locker scope — per-route pay locker, or one shared locker at whichever route runs
+   first that day? (See Payment section above — not yet decided.)
+3. Empty pay locker behavior — warn and stop, or warn and continue?
+4. Load capacity per trip — unlimited v1, or limit from the start?
+5. What the vanilla "Handler" route system this is meant to mirror actually is — a keyword
+   scan for `Handler` in `Assembly-CSharp.dll` found no logistics/dead-drop match, only
+   UI/dialogue/effect classes. Needs a real look (in-game or a broader static search) before
+   Route UX gets designed.
+6. Exact fixed dock world positions per property type (needs in-game measurement on Vortex)
 
 ---
 

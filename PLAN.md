@@ -13,18 +13,19 @@ OTC/OTCLoader-style structure. Two mods so far: `CleanSlate/` and `DeliveryDrive
 sell product. Businesses the player owns generate income and cost rent weekly. Full spec:
 `docs/clean-slate-spec.md`.
 
-**Delivery Driver (Global Real Quick Delivery / GRQD, driver "Fry"):** a van service that
-runs repeatable routes moving owned product between the player's properties on a schedule,
-paid daily from a designated locker. v1 is van-only — no physical Fry NPC spawn, he texts
-the player via an avatar instead (see spec for why that's deferred). Standalone — works with
-vanilla, doesn't require Clean Slate — but optionally supplies Clean Slate's storefront
-storage when both are installed. Full spec: `docs/delivery-driver-spec.md`.
+**Delivery Driver (Global Real Quick Delivery / GRQD, driver "Fry"):** a van service with up
+to 5 independently-scheduled routes, moving owned product from a source locker/shelf to a
+vanilla dock (or the storefront, with Clean Slate), pay collected at each route's first
+stop. v1 is van-only — no physical Fry NPC spawn, he texts the player via an avatar instead.
+Fully standalone — no dependency on Clean Slate. Full spec: `docs/delivery-driver-spec.md`.
 
-Build order: **Delivery Driver first.** It de-risks custom dock placement, storage-to-storage
-transfer, and vehicle spawn/navigation — capabilities Clean Slate's own delivery work (M2
-below) will reuse directly (`StorageTransfer` is explicitly built to be shared). It does
-**not** de-risk custom NPC creation — v1 has no physical NPC spawn, so that question is still
-open and separate (relevant to M3, dealers, which do need a physical NPC at a counter).
+Build order: **Delivery Driver first, and it's not just about de-risking shared
+capabilities (custom dock placement, storage transfer, vehicle spawn/navigation — all reused
+by Clean Slate's M2).** The real reason: **Clean Slate depends on GRQD to be practically
+playable.** Not a hard technical requirement — Clean Slate won't crash without it — but
+without automated delivery the player is stuck manually restocking constantly, which
+defeats running an actual storefront operation. The dependency runs one direction only:
+GRQD needs nothing from Clean Slate, Clean Slate needs GRQD to make sense.
 
 ## Milestones
 
@@ -50,6 +51,9 @@ Decision" in `docs/delivery-driver-spec.md`.
 4. Integration — dock → transfer → van pickup → transfer as one tested loop, in-game on
    Vortex.
 5. Route UX — GRQD phone app page (teal branding, up to 5 routes, pay locker, status).
+   Blocked on identifying the actual vanilla "Handler" route-definition system this is meant
+   to mirror — a `Handler`-keyword scan of `Assembly-CSharp.dll` came up empty for a
+   logistics match. Needs a real look before this step starts.
 6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable.
 
 Not yet broken into tickets.
