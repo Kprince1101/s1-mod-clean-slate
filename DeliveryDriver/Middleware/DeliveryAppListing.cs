@@ -8,12 +8,15 @@ namespace DeliveryDriver.Middleware
     // Registers a GRQD entry in the vanilla Delivery app's shop list.
     //
     // FIRST DRAFT, not verified in-game. Clones an existing DeliveryShop (vanilla shops are
-    // scene prefabs, we have none of our own) before DeliveryApp.Start() runs, so vanilla's
-    // own shop-list UI building picks it up like any other vendor. This only makes GRQD show
-    // up as a tile in the app — it still runs the cloned shop's vanilla buy/checkout flow
-    // (MatchingShopInterfaceName still points at the source shop's ShopInterface) until we
-    // patch CanOrder/SubmitOrder to redirect into GRQD's own route/schedule system. That
-    // redirect is separate follow-up work (Route UX, DD2 step 5), not part of this ticket.
+    // scene prefabs, we have none of our own). First test (injecting via a Start() prefix):
+    // deliveryShops.Count reached 10 as expected, but _shopElements.Count (the actual visible
+    // tile list) stayed at 9 - meaning the tile list gets built before Start() runs, most
+    // likely in Awake(). Injecting via an Awake() prefix instead, to land before whatever
+    // builds _shopElements. This only makes GRQD show up as a tile in the app — it still runs
+    // the cloned shop's vanilla buy/checkout flow (MatchingShopInterfaceName still points at
+    // the source shop's ShopInterface) until we patch CanOrder/SubmitOrder to redirect into
+    // GRQD's own route/schedule system. That redirect is separate follow-up work (Route UX,
+    // DD2 step 5), not part of this ticket.
     public static class DeliveryAppListing
     {
         public const string ShopName = "Global Real Quick Delivery";
@@ -55,8 +58,8 @@ namespace DeliveryDriver.Middleware
         }
     }
 
-    [HarmonyPatch(typeof(DeliveryApp), "Start")]
-    internal static class DeliveryApp_Start_Prefix_Patch
+    [HarmonyPatch(typeof(DeliveryApp), "Awake")]
+    internal static class DeliveryApp_Awake_Prefix_Patch
     {
         [HarmonyPrefix]
         private static void Prefix(DeliveryApp __instance)
@@ -65,19 +68,31 @@ namespace DeliveryDriver.Middleware
         }
     }
 
-    // Diagnostic only: tells us whether Start() rebuilds/reassigns deliveryShops after our
-    // prefix runs (which would explain the clone not showing up despite Install() succeeding).
-    // Delete once the real mechanism is confirmed.
+    // Diagnostic only: logs the same three counts right after Awake() and right after
+    // Start(), to see exactly when _shopElements/_shopPanels get built relative to our
+    // injection. Delete once the real mechanism is confirmed.
+    [HarmonyPatch(typeof(DeliveryApp), "Awake")]
+    internal static class DeliveryApp_Awake_Postfix_Diagnostic
+    {
+        [HarmonyPostfix]
+        private static void Postfix(DeliveryApp __instance) => DiagnosticLog.Log("post-Awake", __instance);
+    }
+
     [HarmonyPatch(typeof(DeliveryApp), "Start")]
     internal static class DeliveryApp_Start_Postfix_Diagnostic
     {
         [HarmonyPostfix]
-        private static void Postfix(DeliveryApp __instance)
+        private static void Postfix(DeliveryApp __instance) => DiagnosticLog.Log("post-Start", __instance);
+    }
+
+    internal static class DiagnosticLog
+    {
+        public static void Log(string label, DeliveryApp app)
         {
-            var shopsCount = __instance.deliveryShops?.Count.ToString() ?? "null";
-            var elementsCount = __instance._shopElements?.Count.ToString() ?? "null";
-            var panelsCount = __instance._shopPanels?.Count.ToString() ?? "null";
-            MelonLogger.Msg($"[DeliveryAppListing diag] post-Start: deliveryShops={shopsCount}, _shopElements={elementsCount}, _shopPanels={panelsCount}");
+            var shopsCount = app.deliveryShops?.Count.ToString() ?? "null";
+            var elementsCount = app._shopElements?.Count.ToString() ?? "null";
+            var panelsCount = app._shopPanels?.Count.ToString() ?? "null";
+            MelonLogger.Msg($"[DeliveryAppListing diag] {label}: deliveryShops={shopsCount}, _shopElements={elementsCount}, _shopPanels={panelsCount}");
         }
     }
 }

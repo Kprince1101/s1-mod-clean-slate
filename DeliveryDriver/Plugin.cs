@@ -1,5 +1,6 @@
 using DeliveryDriver.Middleware;
 using HarmonyLib;
+using Il2CppScheduleOne.PlayerScripts;
 using MelonLoader;
 using UnityEngine;
 
@@ -20,17 +21,18 @@ namespace DeliveryDriver
             LoggerInstance.Msg("Delivery Driver loaded.");
         }
 
-        // Temporary: spawns one test van the first frame VehicleManager is ready, at an
-        // arbitrary world position. Proves spawn + color end-to-end before real route
-        // scheduling exists. Remove once routes drive real spawns (DD2 step 5).
+        // Temporary: spawns one test van near the local player the first frame both
+        // VehicleManager and Player.Local are ready. Proves spawn + color end-to-end before
+        // real route scheduling exists. Remove once routes drive real spawns (DD2 step 5).
         public override void OnUpdate()
         {
-            if (_testVanSpawned || !DeliveryVehicles.IsReady) return;
+            if (_testVanSpawned || !DeliveryVehicles.IsReady || Player.Local == null) return;
             _testVanSpawned = true;
 
-            var van = DeliveryVehicles.SpawnVan(Vector3.zero, Quaternion.identity);
+            var spawnPos = Player.Local.PlayerBasePosition + new Vector3(5f, 0f, 5f);
+            var van = DeliveryVehicles.SpawnVan(spawnPos, Quaternion.identity);
             LoggerInstance.Msg(van != null
-                ? "GRQD test van spawned at Vector3.zero."
+                ? $"GRQD test van spawned near player at {spawnPos}."
                 : "GRQD test van spawn failed.");
         }
     }
