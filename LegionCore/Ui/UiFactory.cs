@@ -1,3 +1,4 @@
+using Il2CppScheduleOne.UI.Phone;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -78,6 +79,48 @@ namespace LegionCore.Ui
             labelRect.offsetMax = Vector2.zero;
 
             return button;
+        }
+
+        // Adds a real icon to the vanilla phone home screen without going through App<T> /
+        // HomeScreen.GenerateAppIcon<T> - deriving a new type from the generic App<T> base
+        // and injecting it via ClassInjector fails under Il2CppInterop (confirmed via a real
+        // in-game crash log: App<T> is a brand new closed generic instantiation the game's
+        // Il2Cpp metadata never AOT-baked, and its own type initializer NullRefs). This
+        // reflects into HomeScreen's protected appIconContainer instead (a live Transform on
+        // an already-existing, already-working vanilla instance - no new generic type needed)
+        // and drops a plain button there, matching every other home-screen icon's parent.
+        // Returns null if HomeScreen isn't ready yet or the field can't be found by reflection.
+        public static Button? InstallHomeScreenIcon(string label, System.Action onClick, Sprite? icon = null, string name = "HomeIcon")
+        {
+            if (!HomeScreen.InstanceExists) return null;
+
+            var container = GetMemberValue<RectTransform>(HomeScreen.Instance, "appIconContainer");
+            if (container == null) return null;
+
+            var button = CreateButton(container, label, onClick, name);
+            if (icon != null)
+            {
+                var image = button.GetComponent<Image>();
+                image.sprite = icon;
+                image.color = Color.white;
+            }
+            return button;
+        }
+
+        // Reflection helper for reaching non-public members on vanilla singletons (like
+        // HomeScreen.appIconContainer above). Checks both fields and properties, since
+        // Il2CppInterop-generated wrapper classes aren't guaranteed to represent every native
+        // member the same way - safer than assuming GetField alone will find it.
+        private static T? GetMemberValue<T>(object instance, string memberName) where T : class
+        {
+            const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Public
+                | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+
+            var field = instance.GetType().GetField(memberName, flags);
+            if (field != null) return field.GetValue(instance) as T;
+
+            var property = instance.GetType().GetProperty(memberName, flags);
+            return property?.GetValue(instance) as T;
         }
 
         // A flat-color square sprite - used for a mod's app icon when no real art exists yet.

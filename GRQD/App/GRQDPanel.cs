@@ -1,6 +1,5 @@
 using System;
 using Il2CppScheduleOne.Property;
-using Il2CppScheduleOne.UI;
 using LegionCore.Delivery;
 using LegionCore.Ui;
 using UnityEngine;
@@ -8,37 +7,40 @@ using UnityEngine.UI;
 
 namespace GRQD.App
 {
-    // GRQD's own phone app - replaces the vanilla-Delivery-app-tile approach entirely (see
-    // conversation history: two dedicated apps, one per mod, not a shared vanilla shop tile).
-    // Registered into the Il2Cpp domain via ClassInjector.RegisterTypeInIl2Cpp<GRQDApp>()
-    // (GRQD/Plugin.cs) and instantiated once the game is fully loaded (Api.IsGameReady).
+    // GRQD's own delivery-management screen. Originally built as a proper phone App<GRQDApp>
+    // (see git history) - reverted after confirming via a real in-game log that deriving from
+    // a generic Il2Cpp base class this way is a dead end under Il2CppInterop: ClassInjector.
+    // RegisterTypeInIl2Cpp<GRQDApp>() threw a NullReferenceException from inside App`1's own
+    // Il2Cpp type-initializer, because App<GRQDApp> is a *brand new* closed generic
+    // instantiation that was never AOT-baked into the game's Il2Cpp metadata (the game only
+    // ever shipped App<DeliveryApp>, App<MapApp>, etc. - not App<T> for an unknown T). That's
+    // a structural limitation, not something callable order or a cast can work around.
     //
-    // v1 scope: locker assignment, per-property pickup dock toggles, and route definitions
-    // (source dock -> destination property, Daily cadence only for now - more cadences and
-    // the destination loading-dock picker are follow-up work). Actual route execution
-    // (pickup/drive/drop-off) is not implemented yet - see RouteManager.OnRouteDue.
-    public class GRQDApp : App<GRQDApp>
+    // This is a plain MonoBehaviour instead - the same safe, proven injection category as
+    // LegionCore.Delivery.PickupDock. It doesn't integrate with App<T>/PlayerSingleton<T> at
+    // all; instead UiFactory.InstallHomeScreenIcon reflects into HomeScreen's own protected
+    // appIconContainer to add a real icon to the phone's home screen, wired to Toggle() below,
+    // without ever needing a new App<T> instantiation.
+    public class GRQDPanel : MonoBehaviour
     {
-        public GRQDApp(IntPtr ptr) : base(ptr) { }
+        public GRQDPanel(IntPtr ptr) : base(ptr) { }
 
+        private GameObject? _root;
         private RectTransform? _content;
         private int _pendingSourceIndex;
         private int _pendingDestIndex;
 
-        public override void Awake()
+        // Plain MonoBehaviour Unity messages (Awake/Update/...) are dispatched by name under
+        // Il2CppInterop, not via C# virtual override - unlike App<T>/PlayerSingleton<T>, which
+        // declare them as real virtual methods. No `override` here.
+        private void Awake()
         {
-            // Must be set before base.Awake() runs OnStartClient -> GenerateHomeScreenIcon,
-            // which reads AppIcon/IconLabel, and before Start() reads appContainer.
-            AppName = "Global Real Quick Delivery";
-            IconLabel = "GRQD";
-            AppIcon = UiFactory.CreateSolidSprite(new Color(0f, 0.5f, 0.5f));
-            Orientation = EOrientation.Vertical;
-
-            var canvas = UiFactory.CreateRootCanvas("GRQDApp_Canvas");
+            var canvas = UiFactory.CreateRootCanvas("GRQDPanel_Canvas", transform);
             canvas.sortingOrder = 10;
-            appContainer = (RectTransform)canvas.transform;
+            _root = canvas.gameObject;
+            _root.SetActive(false);
 
-            var root = UiFactory.CreatePanel(appContainer, new Color(0.05f, 0.05f, 0.05f, 0.92f), "Root");
+            var root = UiFactory.CreatePanel(canvas.transform, new Color(0.05f, 0.05f, 0.05f, 0.92f), "Root");
             root.anchorMin = new Vector2(0.25f, 0.1f);
             root.anchorMax = new Vector2(0.75f, 0.9f);
             root.offsetMin = Vector2.zero;
@@ -51,19 +53,28 @@ namespace GRQD.App
             titleRect.offsetMin = new Vector2(20f, 0f);
             titleRect.offsetMax = new Vector2(-20f, 0f);
 
+            var closeButton = UiFactory.CreateButton(root, "Close", Toggle, "CloseButton");
+            var closeRect = (RectTransform)closeButton.transform;
+            closeRect.anchorMin = new Vector2(0.86f, 0.945f);
+            closeRect.anchorMax = new Vector2(0.99f, 0.995f);
+            closeRect.offsetMin = Vector2.zero;
+            closeRect.offsetMax = Vector2.zero;
+
             _content = UiFactory.CreatePanel(root, new Color(0f, 0f, 0f, 0f), "Content");
             _content.anchorMin = new Vector2(0f, 0f);
             _content.anchorMax = new Vector2(1f, 0.93f);
             _content.offsetMin = new Vector2(20f, 20f);
             _content.offsetMax = new Vector2(-20f, -10f);
-
-            base.Awake();
         }
 
-        public override void SetOpen(bool open)
+        // Wired directly to the home-screen icon's onClick (see UiFactory.InstallHomeScreenIcon
+        // in GRQD/Plugin.cs) - no Phone/HomeScreen open-state hook, keep it simple for v1.
+        public void Toggle()
         {
-            base.SetOpen(open);
-            if (open) RefreshContent();
+            if (_root == null) return;
+            bool willOpen = !_root.activeSelf;
+            _root.SetActive(willOpen);
+            if (willOpen) RefreshContent();
         }
 
         private void RefreshContent()
