@@ -31,9 +31,15 @@ namespace LegionCore.Delivery
         // Business.OwnedBusinesses are separate, non-overlapping lists).
         public static List<Property> GetEligibleProperties()
         {
+            // Property.OwnedProperties / Business.OwnedBusinesses are Il2Cpp-backed lists, not
+            // real C# IEnumerable<T> - can't AddRange/Cast/foreach them directly (same interop
+            // gotcha class as the Transform-foreach bug). Index into them explicitly instead.
             var all = new List<Property>();
-            all.AddRange(Property.OwnedProperties);
-            all.AddRange(Business.OwnedBusinesses.Cast<Property>());
+            var owned = Property.OwnedProperties;
+            for (int i = 0; i < owned.Count; i++) all.Add(owned[i]);
+            var businesses = Business.OwnedBusinesses;
+            for (int i = 0; i < businesses.Count; i++) all.Add(businesses[i]);
+
             return all.Where(p => p != null && p.GetComponentsInChildren<StorageEntity>(true).Length > 0)
                 .Distinct()
                 .ToList();

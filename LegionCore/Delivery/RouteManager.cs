@@ -64,12 +64,17 @@ namespace LegionCore.Delivery
 
         // Wire the daily-fire check into TimeManager.onDayPass. Safe to call repeatedly -
         // only hooks once per process. Call once readiness is confirmed.
+        //
+        // onDayPass is an Il2CppSystem.Action, not a real System.Delegate - System.Delegate.
+        // Combine doesn't apply to it (see DeliveryShopTileFactory's OnSelect cast for the
+        // same interop gotcha with Il2CppSystem.Action<T>). Il2CppInterop generates +/- combine
+        // operators on these wrapper types instead, so += combines onto vanilla's own
+        // subscribers rather than clobbering them.
         public static void EnsureScheduleHooked()
         {
             if (_dayPassHooked || !NetworkSingleton<TimeManager>.InstanceExists) return;
             _dayPassHooked = true;
-            NetworkSingleton<TimeManager>.Instance.onDayPass = (System.Action)System.Delegate.Combine(
-                NetworkSingleton<TimeManager>.Instance.onDayPass, (System.Action)CheckDueRoutes);
+            NetworkSingleton<TimeManager>.Instance.onDayPass += (Il2CppSystem.Action)CheckDueRoutes;
         }
 
         private static void CheckDueRoutes()

@@ -14,7 +14,12 @@ namespace LegionCore.Ui
         // A fresh screen-space-overlay canvas, suitable as an App<T>'s appContainer root.
         public static Canvas CreateRootCanvas(string name, Transform? parent = null)
         {
-            var go = new GameObject(name, typeof(RectTransform));
+            // GameObject(string, params Type[]) needs Il2CppSystem.Type, not System.Type -
+            // typeof() gives the latter, so plain construction + AddComponent<RectTransform>()
+            // (which Unity upgrades the default Transform into, same as any uGUI element) is
+            // the safe path under Il2CppInterop.
+            var go = new GameObject(name);
+            go.AddComponent<RectTransform>();
             if (parent != null) go.transform.SetParent(parent, false);
             var canvas = go.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -27,7 +32,8 @@ namespace LegionCore.Ui
 
         public static RectTransform CreatePanel(Transform parent, Color color, string name = "Panel")
         {
-            var go = new GameObject(name, typeof(RectTransform));
+            var go = new GameObject(name);
+            go.AddComponent<RectTransform>();
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
             image.color = color;
@@ -36,7 +42,8 @@ namespace LegionCore.Ui
 
         public static Text CreateText(Transform parent, string content, int fontSize = 24, string name = "Text")
         {
-            var go = new GameObject(name, typeof(RectTransform));
+            var go = new GameObject(name);
+            go.AddComponent<RectTransform>();
             go.transform.SetParent(parent, false);
             var text = go.AddComponent<Text>();
             text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -50,7 +57,8 @@ namespace LegionCore.Ui
 
         public static Button CreateButton(Transform parent, string label, UnityAction onClick, string name = "Button")
         {
-            var go = new GameObject(name, typeof(RectTransform));
+            var go = new GameObject(name);
+            go.AddComponent<RectTransform>();
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
             image.color = new Color(1f, 1f, 1f, 0.15f);
