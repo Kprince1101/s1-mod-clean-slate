@@ -13,14 +13,18 @@ OTC/OTCLoader-style structure. Two mods so far: `CleanSlate/` and `DeliveryDrive
 sell product. Businesses the player owns generate income and cost rent weekly. Full spec:
 `docs/clean-slate-spec.md`.
 
-**Delivery Driver ("Fry"):** a hireable logistics NPC that runs repeatable routes moving
-product between the player's properties on a schedule. Standalone — works with vanilla,
-doesn't require Clean Slate — but optionally supplies Clean Slate's storefront storage when
-both are installed. Full spec: `docs/delivery-driver-spec.md`.
+**Delivery Driver (Global Real Quick Delivery / GRQD, driver "Fry"):** a van service that
+runs repeatable routes moving owned product between the player's properties on a schedule,
+paid daily from a designated locker. v1 is van-only — no physical Fry NPC spawn, he texts
+the player via an avatar instead (see spec for why that's deferred). Standalone — works with
+vanilla, doesn't require Clean Slate — but optionally supplies Clean Slate's storefront
+storage when both are installed. Full spec: `docs/delivery-driver-spec.md`.
 
-Build order: **Delivery Driver first.** It de-risks custom-NPC creation, scheduling, and
-product movement — the exact capabilities Clean Slate's storefront/delivery work
-(M2 below) will build on — before Clean Slate depends on any of it.
+Build order: **Delivery Driver first.** It de-risks custom dock placement, storage-to-storage
+transfer, and vehicle spawn/navigation — capabilities Clean Slate's own delivery work (M2
+below) will reuse directly (`StorageTransfer` is explicitly built to be shared). It does
+**not** de-risk custom NPC creation — v1 has no physical NPC spawn, so that question is still
+open and separate (relevant to M3, dealers, which do need a physical NPC at a counter).
 
 ## Milestones
 
@@ -31,19 +35,24 @@ product movement — the exact capabilities Clean Slate's storefront/delivery wo
 Minimal MelonLoader Il2Cpp plugin scaffold in `DeliveryDriver/`, same pattern as Clean
 Slate's M0. Proves the second mod builds and loads independently in the monorepo.
 
-#### DD1 — Own-layer vs. S1API decision
+#### DD1 — Own-layer vs. S1API decision ✅
 
-Spec proposed a bake-off (own thin layer vs. S1API's `NPCPrefabBuilder`). Recommendation:
-skip the S1API build entirely — see the amendment in `docs/delivery-driver-spec.md`. OTC's
-own crash history already shows S1API's custom-NPC code needs runtime IL patching to work,
-which is the exact capability this mod needs. Pending final confirmation, but leaning
-own-layer-only, no comparison build.
+Decided, not just recommended: no bake-off. OTC's crash chain traced into `PatchS1APIBugs` —
+the *currently maintained* S1API fork ships buggy custom-NPC code that needed runtime IL
+patches, and the patcher itself crashed inside Mono.Cecil. Own layer only. See "Foundation
+Decision" in `docs/delivery-driver-spec.md`.
 
-#### DD2 — Driver NPC, routes, payment (build)
+#### DD2 — Build (six steps, per the spec's build order)
 
-Per the spec's task breakdown: spawn Fry with a stable identity id, route data model (up to
-5, pickup → dropoff, repeat-cycling), schedule/waypoint van pathing, product load/unload at
-each end, daily pay from a designated locker. Not yet broken into tickets.
+1. `Middleware/Docks.cs` — custom dock via `ClassInjector`, fixed test position.
+2. `Middleware/StorageTransfer.cs` — locker-to-locker transfer helper.
+3. `Middleware/DeliveryVehicles.cs` — spawn + navigate wrapper.
+4. Integration — dock → transfer → van pickup → transfer as one tested loop, in-game on
+   Vortex.
+5. Route UX — GRQD phone app page (teal branding, up to 5 routes, pay locker, status).
+6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable.
+
+Not yet broken into tickets.
 
 ### Clean Slate
 
@@ -72,8 +81,10 @@ independent work anymore.
 #### M3 — Dealer storefronts
 
 NPC dealer per zone, selling product on the player's behalf. Not yet speced — needs its own
-design pass, especially NPC creation (see DD1 — whatever approach Delivery Driver validates
-for custom NPCs is the one this reuses, not a second from-scratch investigation).
+design pass, especially NPC creation. Delivery Driver v1 does **not** de-risk this (it's
+van-only, no physical NPC spawn) — custom NPC creation is still an open, unspiked question,
+and it's the exact capability that crashed OTC. Spike this before designing dealer behavior
+further, same treatment M1 gave the delivery mechanic.
 
 #### M4 — Business economy
 
@@ -83,8 +94,9 @@ income-model decision (per-item-sold vs. flat) before build.
 
 ## Status
 
-Delivery Driver: DD0 done, DD1 pending final call, DD2 not started.
-Clean Slate: M0/M1 done, M2 depends on DD2 landing first, M3/M4 unspeced.
+Delivery Driver: DD0/DD1 done, DD2 not started (6-step build order in the spec).
+Clean Slate: M0/M1 done, M2 depends on DD2 landing first, M3 needs its own NPC-creation
+spike before it can be speced further, M4 unspeced.
 
 ## Open process question
 

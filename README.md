@@ -13,8 +13,8 @@ that mod's actual features need. Beta branch only.
 
 - `CleanSlate/` — storefront/economy mod. Spec: `docs/clean-slate-spec.md`. Status in
   `PLAN.md`.
-- `DeliveryDriver/` — logistics NPC ("Fry") mod. Spec: `docs/delivery-driver-spec.md`.
-  Status in `PLAN.md`.
+- `DeliveryDriver/` — Global Real Quick Delivery (GRQD), a van logistics mod (driver "Fry",
+  van-only in v1). Spec: `docs/delivery-driver-spec.md`. Status in `PLAN.md`.
 
 Each mod is independently shippable — its own DLL, its own Thunderstore listing, no hard
 dependency on the other (same pattern as OTC/OTCLoader).

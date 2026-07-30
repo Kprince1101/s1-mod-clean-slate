@@ -1,143 +1,142 @@
 # Delivery Driver ("Fry") — Schedule I Logistics Mod
 
+**Company name:** Global Real Quick Delivery (GRQD)
+**Driver:** Fry (Futurama resemblance)
 **Type:** Schedule I content mod (MelonLoader / C#, current game version 0.4.6f8+)
-**Status:** Spec / first build target
+**Status:** Spec — build this FIRST (de-risks NPC/vehicle/storage questions before Clean Slate depends on them)
 **Author:** Legion
-**Build order:** FIRST. This is the de-risk build — proves custom-NPC + scheduling + product-movement before Clean Slate depends on it.
-**Branch target:** beta only. No stable-branch compatibility.
-
----
-
-## Amendment: Version B (S1API bake-off) — recommend cutting
-
-Own-layer-vs-S1API was proposed as an empirical bake-off. Recommendation: skip Version B,
-build own-layer only. We already have first-hand evidence, not a hunch: OTC's crash chain
-traced into `PatchS1APIBugs` — IL patches written specifically to work around bugs in
-S1API's own custom-NPC code, and the patcher itself crashed inside Mono.Cecil. That's the
-exact capability (custom NPC creation) Fry needs. The fragility isn't "stale foundation," a
-currently-maintained fork already ships broken-enough custom-NPC code to need runtime IL
-patching. A bake-off would spend real time re-discovering what OTC's crash logs already
-showed. Final call pending — see repo discussion.
 
 ---
 
 ## One-line pitch
 
-A hireable delivery driver NPC ("Fry") with a van who runs repeatable routes moving product between your properties on a schedule, paid daily from a locker you designate. Works standalone with vanilla Schedule I and is Clean-Slate-aware.
+A repeatable product-delivery van service (Global Real Quick Delivery) that moves your owned product between properties on a schedule, paid daily from a designated locker. Works standalone with vanilla Schedule I and integrates optionally with Clean Slate.
 
 ---
 
-## Design Principle (the whole reason this mod exists the way it does)
+## Design Principle
 
-**We build our own thin interface layer against the game's own assemblies — not on top of other people's mods.** Third-party mod dependencies (S1API-based mods like OTC) proved fragile and unreliable: they break on version drift and chain you to someone else's maintenance cadence.
-
-Our layer only exposes and interfaces with **exactly what our mods need** — NPC spawn, schedule/pathing, product movement, inventory/locker access. It does **not** try to abstract the entire game. That narrow surface is dramatically more manageable to maintain than a full game-abstraction API, and it means when the game updates, we fix a small, owned layer instead of waiting on anyone.
+**Own thin middleware layer only.** We build directly against `Assembly-CSharp` for exactly what our mods need — NPC spawn, schedule/pathing, product movement, locker access. No S1API. No other mod dependencies. Third-party mod dependencies are fragile, chain you to someone else's maintenance cadence, and break on version drift (see: OTC). Our layer exposes and interfaces with only what we need — it does not pretend to be the entire game. That narrow surface is dramatically more maintainable. When the game updates, we fix our small owned layer instead of waiting on anyone.
 
 ---
 
-## Two-Version Bake-Off (decide the foundation empirically)
+## Foundation Decision: Own Layer Only (Version B eliminated)
 
-Build the same driver twice, compare, keep the winner. The delivery driver is the ideal low-stakes test case (one NPC, one route system, one pay pickup).
+**No bake-off. We build on our own thin middleware layer against `Assembly-CSharp` directly.**
 
-- **Version A — Own thin layer (`LegionS1` or similar).** Built directly against `Assembly-CSharp` for only the internals the driver touches: NPC spawn/appearance, schedule/waypoint pathing, product pickup/dropoff, locker access for pay. No external mod dependency. Full control over version-compat.
-- **Version B — On S1API.** Same driver built with S1API's documented `NPCPrefabBuilder` + `WithSchedule`/`WalkTo` pattern. Reference implementation to study: **BigWillyMod** (by ifBars — custom NPC with full schedule/appearance/behavior). Gives the maintained-API path a fair shot.
+The bake-off (own layer vs. S1API) was cut after reviewing OTC's actual crash chain. The crashes traced into `PatchS1APIBugs` — IL patches OTC had to write because the *currently maintained* S1API fork ships buggy custom-NPC code. Those patches then crashed inside Mono.Cecil. That is not a stale-fork problem — that is the current, maintained S1API having the same fundamental bug for the exact capability Fry needs (custom NPC creation and scheduling). A bake-off would re-discover what the crash logs already documented. Version B is eliminated.
 
-**Decision criteria:** which is cleaner to write, which survives a game update better, which is less painful to maintain. Whichever wins informs how Clean Slate is built.
-
-**Prior art / why this is de-risked:** custom scheduled NPCs are proven (BigWilly, current). Dealer-behavior modification is proven (High Baller, current, April 2026). The version-drift that killed OTC came from a *stale* foundation, not from these capabilities being impossible.
+Build on our own layer. Own the version-compat story. When the game updates, we fix our small surface — not theirs.
 
 ---
 
-## Character / Aesthetic
+## Spike Results (all three feasibility questions: GREEN)
 
-- **Name:** Fry
-- **Appearance:** resembles Fry from Futurama as closely as the avatar system allows (orange/red hair, white shirt + red jacket vibe, etc.)
-- **Van:** Planet Express ship coloring (dark forest green), with a **ROUGH, hand-tagged** version of a Planet-Express-style logo on the van sides.
-- **IP note:** Futurama / Planet Express is Fox/Disney IP. The character *resemblance* and *vibe* are homage/parody (lower risk). Keep the logo **loose and hand-tagged, NOT a pixel-perfect copy** — parody framing + rough execution is the safe read. Avoid an exact logo rip.
+Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tested in-game — that is M2.
+
+### 1. Custom dock — feasible
+`LoadingDock` is a plain `MonoBehaviour`, not a `GridItem`. Not tied to the tile/placement system. We register our own `MonoBehaviour` via `ClassInjector.RegisterTypeInIl2Cpp` (standard Il2CppInterop) and attach to a `GameObject` at any `Transform`. No dependency on vanilla's per-property dock array.
+
+### 2. Storage-to-storage transfer — feasible, no physical handler needed
+`ItemSlot.InsertItem` / `TryInsertItemIntoSet(List<ItemSlot>, ItemInstance)` gives a direct API. A locker-A to locker-B move: pull `ItemInstance` off a slot in A (`ClearStoredInstance`), insert into B via `TryInsertItemIntoSet`. `StorageEntity.ItemSlots : List<ItemSlot>` gives direct slot access. **Constraint:** `StorageEntity` extends `NetworkBehaviour` — transfer must run server-side. Same constraint vanilla lives under, nothing mod-specific.
+
+### 3. Van spawn + navigation — feasible, real road AI included for free
+`VehicleManager.SpawnAndReturnVehicle(string vehicleCode, Vector3 position, Quaternion rotation, bool playerOwned)` spawns any vehicle at any world position. `VehicleAgent.Navigate(Vector3 location, NavigationSettings settings, callback)` routes via the game's real road AI (road graph, obstacle sweeps) — same system vanilla traffic and vanilla deliveries use. Real road driving costs nothing extra; we just call the API. Van-only v1 (no driver NPC). `NPC.SetTransform` + `EnterVehicle` exists for a future Fry-visible pass but is explicitly deferred.
 
 ---
 
-## Core Mechanics (v1.0)
+## Aesthetic / Branding
 
-### The driver NPC
-- Hireable NPC ("Fry") that spawns and runs on a schedule.
-- Custom NPC id must be **stable save data** — set the identity id once and never change it, or it orphans NPCs in saves.
-- (If the NPC has a runtime-generated mugshot: note the known S1API bright-flash quirk and add a photosensitivity line to the mod description. May not apply if we render our own.)
+- **Company:** Global Real Quick Delivery
+- **Abbreviation:** GRQD
+- **Driver:** Fry (Futurama resemblance — orange/red hair, white shirt + red jacket vibe)
+- **Van:** Planet Express green (dark forest), rough hand-tagged GRQD logo on the sides
+- **Phone app page:** Planet Express teal, branded as Global Real Quick Delivery
+- **IP note:** Futurama / Planet Express is Fox/Disney IP. Character resemblance + rough logo = homage/parody (acceptable). Pixel-perfect logo copy = not acceptable. Keep the logo loose and hand-tagged, not a clean rip.
+- **Fry communications:** Fry texts the player via in-game messages using a Fry-lookalike avatar. No physical NPC spawn in v1.
+
+---
+
+## Core Mechanics (v1.0 — the public release)
 
 ### Routes
-- Player assigns **up to 5 routes**.
-- A route = a pickup location → dropoff location leg (moving product between properties/storage).
-- Driver runs routes on **repeat** (cycles through the assigned routes continuously).
-- Route execution = drive/walk the van to pickup, load product, travel to dropoff, unload. Schedule/waypoint driven.
+- Player assigns up to 5 routes
+- A route = source property/locker to destination property/storage
+- Driver cycles through assigned routes on repeat
+- Van spawns at the source dock, product is loaded, van navigates to destination via real road AI, product is delivered
 
-### Payment
-- Driver is **paid daily** (flat wage, like other workers).
-- Pay is pulled **from a locker the player designates** at one of their properties.
-- Diegetic touch: pay pickup could be the **first or last delivery on the route** (driver grabs wages from the designated locker as part of a route stop). Nice-to-have if clean; flat daily deduction if not.
+### The custom dock
+- Our own dock `MonoBehaviour`, spawned at a fixed street-side position per property type (v1 hardcoded defaults):
+  - Manor: outside the gate
+  - Bungalow: street-side
+  - Storage unit: street-side
+- Player does not place it in v1 — fixed positions only, kinks ironed out on known locations first
+- The dock is a staging point: product is debited from the source locker into the dock staging area, the van loads from there
 
 ### Product movement
-- Driver physically moves **the player's produced/stockpiled product** from one location to another. It does not create product — it relocates owned inventory.
-- Interfaces with storage/lockers at both ends of a route.
+- Source locker to dock staging: `StorageTransfer` helper (server-side `TryInsertItemIntoSet`)
+- Dock to van: van loads from the dock on arrival
+- Van to destination storage: `StorageTransfer` on arrival at destination
+- Moves owned product only — does not create product
+
+### Payment
+- Driver paid daily flat wage (configurable, sits between chemist and street-dealer rates)
+- Pay pulled from a player-designated locker at any owned property
+- Empty pay locker behavior: TBD (warn player, driver stops — decide in build)
+
+### Delivery loop (one route cycle)
+1. Route timer fires
+2. Check source locker has product, debit via StorageTransfer to dock staging
+3. Spawn GRQD van at the custom dock
+4. Van navigates to destination via `VehicleAgent.Navigate` (real road AI)
+5. Credit destination storage via StorageTransfer on arrival
+6. Deduct daily wage from pay locker
+7. Van despawns
+8. Cycle to next route
 
 ---
 
 ## Standalone + Integration
 
-- **Works with vanilla Schedule I** as a general logistics tool — anyone running a multi-property operation wants automated product movement.
-- **Clean-Slate-aware** — when Clean Slate is installed, the driver can supply the storefront's on-site storage (weekly restock). But Clean Slate does **not** require this mod (Clean Slate falls back to manual restock), and this mod does **not** require Clean Slate. Optional integration, not a hard dependency either direction.
+- **Works with vanilla Schedule I** — general-purpose logistics for any multi-property operation
+- **Clean-Slate-aware** — when Clean Slate is installed, GRQD can supply the storefront's on-site storage. Neither mod requires the other. Optional integration, no hard dependency either direction.
 
 ---
 
-## Open Questions / Design TODO
+## v1 Scope Line
 
-1. **Van pathing:** does the van actually drive roads, or is it a simplified "walk/teleport with a van model" for reliability? Real vehicle pathing is much harder — decide the fidelity vs. reliability tradeoff early.
-2. **Route definition UX:** how does the player set the up-to-5 routes? In-world interaction, a menu, a phone app? (Clean Slate has a phone app — could share.)
-3. **Load capacity:** does the van carry a limited amount per trip, or unlimited? Capacity creates interesting logistics; unlimited is simpler.
-4. **Pay-from-locker mechanic:** first/last-stop pickup vs. simple daily deduction — pick based on what's clean to implement.
-5. **What happens if the pay locker is empty?** (Driver stops? Quits? Warning in app?)
-6. **Multiple drivers?** v1.0 = one Fry, or allow hiring several? (Lean one for v1.0.)
+**In:** GRQD van, up to 5 repeatable routes, product movement between locations, custom fixed-position docks per property type, daily pay from designated locker, Fry texts via avatar, GRQD branding + Planet Express teal app page, vanilla-compatible, Clean-Slate-aware.
+
+**Explicitly deferred:** visible Fry NPC in van, player-placed dock positioning, load-capacity limits per trip, multiple drivers, in-van handler NPC walking to grab product.
 
 ---
 
-## v1.0 Scope Line
+## Middleware Layer
 
-**In:** one driver (Fry), up to 5 repeatable routes, product movement between locations, daily pay from a designated locker, vanilla-compatible, Clean-Slate-aware, the Fry/Planet-Express aesthetic. Built via the two-version bake-off to settle the foundation question.
+Three files, each independently testable before integration:
 
-**Future:** multiple drivers, load-capacity logistics, route scheduling/timing controls, deeper Clean Slate integration, other vehicle types.
+**`Middleware/Docks.cs`** — custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Staging area for product pending van pickup.
+
+**`Middleware/StorageTransfer.cs`** — locker-to-locker item move helper wrapping `ItemSlot` / `TryInsertItemIntoSet`. Generic: takes source `List<ItemSlot>` and dest `List<ItemSlot>`, moves N units of a given item type. Server-side. Reused by Clean Slate (dock to shelf).
+
+**`Middleware/DeliveryVehicles.cs`** — spawn + navigate wrapper over `VehicleManager.SpawnAndReturnVehicle` + `VehicleAgent.Navigate`. Van-only v1. Real road AI free via `VehicleAgent`. Future hook point for `NPC.SetTransform` + `EnterVehicle` when Fry-visible is added.
 
 ---
 
-## Task Breakdown (for Commander dockets)
+## Open Questions (decide in build, not before)
 
-**Epic: Delivery Driver (Fry) mod**
+1. Can a van get robbed mid-route, or is it inherently safe?
+2. Empty pay locker behavior — warn and stop, or warn and continue?
+3. Load capacity per trip — unlimited v1, or limit from the start?
+4. Exact fixed dock world positions per property type (needs in-game measurement on Vortex)
 
-- **Docket: Foundation bake-off**
-  - Stand up mod project (MelonLoader, current game version target 0.4.6f8)
-  - Version A: thin own-layer — spawn a custom NPC against Assembly-CSharp
-  - Version B: S1API NPCPrefabBuilder — spawn same NPC (study BigWilly)
-  - Compare: cleanliness, update-resilience, maintainability → pick foundation
+---
 
-- **Docket: The driver NPC**
-  - Spawn Fry with stable identity id
-  - Futurama-Fry appearance
-  - Van model + Planet-Express-green + rough tagged logo
+## Build Order
 
-- **Docket: Routes**
-  - Route data model (pickup → dropoff, up to 5)
-  - Repeat cycling through routes
-  - Schedule/waypoint pathing for van travel
-  - Product load at pickup / unload at dropoff (locker/storage interface)
-
-- **Docket: Payment**
-  - Designate pay locker
-  - Daily wage deduction (or first/last-stop pickup)
-  - Empty-locker handling
-
-- **Docket: Route UX**
-  - How the player defines/edits the 5 routes
-
-- **Docket: Integration + ship**
-  - Vanilla compatibility pass
-  - Clean-Slate-aware hook (optional supply to storefront storage)
-  - Test on Vortex against current version
-  - Thunderstore publish (IP-safe logo, photosensitivity note if applicable, descriptive tagline)
+1. `Middleware/Docks.cs` — custom dock at fixed test position
+2. `Middleware/StorageTransfer.cs` — locker-to-locker transfer helper
+3. `Middleware/DeliveryVehicles.cs` — spawn + navigate wrapper
+4. Integration — wire all three into one end-to-end delivery loop, test in-game on Vortex against 0.4.6f8
+5. Route UX — GRQD phone app page (teal, up to 5 routes, pay locker designation, route status)
+6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable
