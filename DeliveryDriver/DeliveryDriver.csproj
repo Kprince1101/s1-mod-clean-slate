@@ -6,8 +6,8 @@
 		<LangVersion>latest</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<AssemblyName>CleanSlate</AssemblyName>
-		<RootNamespace>CleanSlate</RootNamespace>
+		<AssemblyName>DeliveryDriver</AssemblyName>
+		<RootNamespace>DeliveryDriver</RootNamespace>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<IsPackable>false</IsPackable>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
