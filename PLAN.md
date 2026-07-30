@@ -20,12 +20,18 @@ stop. v1 is van-only — no physical Fry NPC spawn, he texts the player via an a
 Fully standalone — no dependency on Clean Slate. Full spec: `docs/delivery-driver-spec.md`.
 
 Build order: **Delivery Driver first, and it's not just about de-risking shared
-capabilities (custom dock placement, storage transfer, vehicle spawn/navigation — all reused
-by Clean Slate's M2).** The real reason: **Clean Slate depends on GRQD to be practically
-playable.** Not a hard technical requirement — Clean Slate won't crash without it — but
-without automated delivery the player is stuck manually restocking constantly, which
-defeats running an actual storefront operation. The dependency runs one direction only:
-GRQD needs nothing from Clean Slate, Clean Slate needs GRQD to make sense.
+capabilities (custom dock placement, storage transfer, vehicle spawn/navigation).** The real
+reason: **Clean Slate depends on GRQD to be practically playable.** Not a hard technical
+requirement — Clean Slate won't crash without it — but without automated delivery the player
+is stuck manually restocking constantly, which defeats running an actual storefront
+operation. The dependency runs one direction only: GRQD needs nothing from Clean Slate,
+Clean Slate needs GRQD to make sense. Since delivery now fully belongs to GRQD, Clean
+Slate's own first real build step is the storefront itself, not delivery.
+
+**Third mod, under consideration, not yet started:** a QoL mod handling rent/passive-income
+generically — for any owned property, not storefront-specific. Floated as a way to pull that
+concern out of Clean Slate rather than building it as Clean Slate's own M4. Not named, not
+scaffolded, not decided — parked here until it's worth committing to.
 
 ## Milestones
 
@@ -73,35 +79,41 @@ Static feasibility check against the actual game assemblies: can we place a cust
 move product between storage locations programmatically, spawn/route a vehicle to a custom
 point. All three came back feasible. See `docs/delivery-dock-spec.md`.
 
-#### M2 — Delivery mechanic (build)
+#### M2 — Storefront core (next up, the actual first build step)
 
-Likely builds on Delivery Driver's DD2 output (vehicle spawn/navigate, product movement)
-rather than duplicating it — needs revisiting once DD2 exists, not fully speced as
-independent work anymore.
+From the spec's original "Storefront core" docket: the physical storefront building,
+ownership/buy-unlock flow, on-site product storage. This is Clean Slate's real starting
+point now that delivery is GRQD's job, not a separate mechanic Clean Slate builds itself.
 
-- Custom dock component, storage-to-storage transfer, vehicle spawn+navigate — see
-  `docs/delivery-dock-spec.md` for the API surface already identified.
-- Decision needed: van-only vs. a driver NPC (may just be "reuse Fry").
+- Delivery *into* the storefront's on-site storage is a GRQD concern (a route's finish can
+  target the storefront, per the delivery-driver spec) — Clean Slate doesn't build its own
+  delivery/dock logic. `docs/delivery-dock-spec.md`'s API findings (dock placement, storage
+  transfer, vehicle spawn) live in DD2's build, not here.
+- Not yet broken into tickets.
 
-#### M3 — Dealer storefronts
+#### M3 — Dealer-as-counter loop
 
-NPC dealer per zone, selling product on the player's behalf. Not yet speced — needs its own
-design pass, especially NPC creation. Delivery Driver v1 does **not** de-risk this (it's
-van-only, no physical NPC spawn) — custom NPC creation is still an open, unspiked question,
-and it's the exact capability that crashed OTC. Spike this before designing dealer behavior
+Dealer assigned to a storefront counter; customer walk-in → order → fetch from on-site
+storage → deliver → collect cash; diverting a dealer's assigned customers from street deals
+to the storefront. Needs its own design pass, especially NPC creation — Delivery Driver v1
+does **not** de-risk this (it's van-only, no physical NPC spawn), so custom NPC creation is
+still open, unspiked, and it's the exact capability that crashed OTC. Spike before designing
 further, same treatment M1 gave the delivery mechanic.
 
-#### M4 — Business economy
+#### Rent/income — likely extracted to the third mod, not built as Clean Slate's own milestone
 
-Owned businesses generate passive income, cost rent weekly. No vanilla rent/passive-income
-system exists to hook into (confirmed in the M1 spike) — this is new middleware. Needs an
-income-model decision (per-item-sold vs. flat) before build.
+Was M4 ("Business economy"). No vanilla rent/passive-income system exists to hook into
+(confirmed in the M1 spike) — new middleware either way. Currently leaning toward building
+this as the separate QoL mod noted under Concept above, generic to any owned property
+rather than storefront-specific, but not decided. If Clean Slate ships before that mod
+exists, this reverts to a Clean Slate milestone.
 
 ## Status
 
 Delivery Driver: DD0/DD1 done, DD2 not started (6-step build order in the spec).
-Clean Slate: M0/M1 done, M2 depends on DD2 landing first, M3 needs its own NPC-creation
-spike before it can be speced further, M4 unspeced.
+Clean Slate: M0/M1 done (M1 fed into GRQD, not independent CS work anymore), M2 (storefront
+core) is next up, M3 needs its own NPC-creation spike, rent/income direction undecided
+(Clean Slate milestone vs. third mod).
 
 ## Open process question
 
