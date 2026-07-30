@@ -80,9 +80,18 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
   daily route fires every day regardless of what a weekly route is doing.
 
 ### Pickup docks — source-side only, not a general dock
-- Our own dock `MonoBehaviour`, spawned at a fixed position per property type. Exact
-  positioning doesn't need to be pretty or realistic — an arbitrary workable point per
-  property type is fine for v1, not worth blocking on. Player doesn't place it in v1.
+- Properties that need one: storage unit, bungalow, docks warehouse, barn, manor, and
+  technically the storefront (Clean Slate).
+- Only three of those are distinct C# types (`Bungalow`, `Manor`, and the generic
+  `Business`) — confirmed via static inspection, no `Barn`, `Warehouse`, or `StorageUnit`
+  class exists. Storage unit / docks warehouse / barn are `Property`/`Business` *instances*
+  distinguished by `PropertyCode`/`PropertyName`, not separate types. Dock-position lookup
+  needs to key off that code/name string, not a C# type switch — a type switch silently
+  can't handle half this list.
+- Our own dock `MonoBehaviour`, spawned at a fixed position per property (keyed by code/name
+  per the above). Exact positioning doesn't need to be pretty or realistic — an arbitrary
+  workable point per property is fine for v1, not worth blocking on. Player doesn't place it
+  in v1.
 - **This dock is pickup-only.** It exists solely as a staging point at a route's *start*: the
   van loads from it after product is debited from the source locker/shelf into it. It is not
   a delivery destination and has no function beyond that one job.

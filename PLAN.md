@@ -95,10 +95,13 @@ point now that delivery is GRQD's job, not a separate mechanic Clean Slate build
 
 Dealer assigned to a storefront counter; customer walk-in → order → fetch from on-site
 storage → deliver → collect cash; diverting a dealer's assigned customers from street deals
-to the storefront. Needs its own design pass, especially NPC creation — Delivery Driver v1
-does **not** de-risk this (it's van-only, no physical NPC spawn), so custom NPC creation is
-still open, unspiked, and it's the exact capability that crashed OTC. Spike before designing
-further, same treatment M1 gave the delivery mechanic.
+to the storefront. **Correction:** this is controlling/redirecting *existing* vanilla dealer
+NPCs the player already hires — not creating new custom NPCs. No NPC-creation spike needed
+here after all; the risky OTC-crashing capability (spawning brand-new custom NPCs) doesn't
+apply to M3. Dealer-behavior modification specifically is proven working by an existing mod
+(High Baller, referenced in the delivery-driver spec's prior-art note) — still needs its own
+design pass for the storefront-specific behavior (redirect, walk-to-storage, counter
+interaction), just not a from-scratch NPC-creation spike.
 
 #### Rent/income — likely extracted to the third mod, not built as Clean Slate's own milestone
 
@@ -112,7 +115,8 @@ exists, this reverts to a Clean Slate milestone.
 
 Delivery Driver: DD0/DD1 done, DD2 not started (6-step build order in the spec).
 Clean Slate: M0/M1 done (M1 fed into GRQD, not independent CS work anymore), M2 (storefront
-core) is next up, M3 needs its own NPC-creation spike, rent/income direction undecided
+core) is next up, M3 needs a design pass (behavior on existing NPCs, not NPC creation),
+rent/income direction undecided
 (Clean Slate milestone vs. third mod).
 
 ## Open process question
