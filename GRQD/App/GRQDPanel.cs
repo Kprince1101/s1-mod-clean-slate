@@ -1,7 +1,10 @@
 using System;
+using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.Property;
+using Il2CppScheduleOne.UI.Phone;
 using LegionCore.Delivery;
 using LegionCore.Ui;
+using MelonLoader;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -35,36 +38,59 @@ namespace GRQD.App
         // declare them as real virtual methods. No `override` here.
         private void Awake()
         {
-            var canvas = UiFactory.CreateRootCanvas("GRQDPanel_Canvas", transform);
-            canvas.sortingOrder = 10;
-            _root = canvas.gameObject;
+            // Piggyback on the SAME Canvas every real phone app uses (AppsCanvas.canvas - a
+            // public field, no reflection needed) instead of building our own standalone
+            // full-screen overlay canvas like the first version did. That rendered over the
+            // ENTIRE game viewport, not just the phone screen (confirmed from a screenshot:
+            // the panel extended well past the phone's bezel into the rest of the HUD).
+            // Parenting here means our RectTransform inherits the exact same render mode/
+            // position/scale as DeliveryApp, JournalApp, etc. - confined to the phone
+            // automatically, no manual screen-space math needed on our end.
+            Transform parent = transform;
+            if (AppsCanvas.InstanceExists)
+            {
+                var appsCanvas = AppsCanvas.Instance;
+                // Vanilla only enables this canvas via a real App<T>.SetOpen()/Phone-open
+                // flow, which GRQDPanel doesn't participate in (see GRQD/Plugin.cs for why
+                // it's not an App<T>). Force it on once - permanently enabled is harmless,
+                // an enabled Canvas with nothing active under it draws nothing extra.
+                appsCanvas.canvas.enabled = true;
+                parent = appsCanvas.canvas.transform;
+            }
+
+            var container = UiFactory.CreatePanel(parent, Color.clear, "GRQDPanel_Root");
+            container.anchorMin = Vector2.zero;
+            container.anchorMax = Vector2.one;
+            container.offsetMin = Vector2.zero;
+            container.offsetMax = Vector2.zero;
+            _root = container.gameObject;
             _root.SetActive(false);
 
-            var root = UiFactory.CreatePanel(canvas.transform, new Color(0.05f, 0.05f, 0.05f, 0.92f), "Root");
-            root.anchorMin = new Vector2(0.25f, 0.1f);
-            root.anchorMax = new Vector2(0.75f, 0.9f);
+            var root = UiFactory.CreatePanel(container, new Color(0.05f, 0.05f, 0.05f, 0.92f), "Background");
+            root.anchorMin = new Vector2(0.03f, 0.03f);
+            root.anchorMax = new Vector2(0.97f, 0.97f);
             root.offsetMin = Vector2.zero;
             root.offsetMax = Vector2.zero;
 
-            var title = UiFactory.CreateText(root, "Global Real Quick Delivery", 32, "Title");
+            var title = UiFactory.CreateText(root, "Global Real Quick Delivery", 20, "Title");
             var titleRect = (RectTransform)title.transform;
-            titleRect.anchorMin = new Vector2(0f, 0.94f);
+            titleRect.anchorMin = new Vector2(0f, 0.93f);
             titleRect.anchorMax = new Vector2(1f, 1f);
-            titleRect.offsetMin = new Vector2(20f, 0f);
-            titleRect.offsetMax = new Vector2(-20f, 0f);
+            titleRect.offsetMin = new Vector2(10f, 0f);
+            titleRect.offsetMax = new Vector2(-10f, 0f);
 
             var closeButton = UiFactory.CreateButton(root, "Close", Toggle, "CloseButton");
             var closeRect = (RectTransform)closeButton.transform;
-            closeRect.anchorMin = new Vector2(0.86f, 0.945f);
+            closeRect.anchorMin = new Vector2(0.8f, 0.935f);
             closeRect.anchorMax = new Vector2(0.99f, 0.995f);
             closeRect.offsetMin = Vector2.zero;
             closeRect.offsetMax = Vector2.zero;
 
             _content = UiFactory.CreatePanel(root, new Color(0f, 0f, 0f, 0f), "Content");
             _content.anchorMin = new Vector2(0f, 0f);
-            _content.anchorMax = new Vector2(1f, 0.93f);
-            _content.offsetMin = new Vector2(20f, 20f);
-            _content.offsetMax = new Vector2(-20f, -10f);
+            _content.anchorMax = new Vector2(1f, 0.92f);
+            _content.offsetMin = new Vector2(10f, 10f);
+            _content.offsetMax = new Vector2(-10f, -6f);
         }
 
         // Wired directly to the home-screen icon's onClick (see UiFactory.InstallHomeScreenIcon
@@ -74,7 +100,19 @@ namespace GRQD.App
             if (_root == null) return;
             bool willOpen = !_root.activeSelf;
             _root.SetActive(willOpen);
-            if (willOpen) RefreshContent();
+            if (willOpen)
+            {
+                RefreshContent();
+
+                // Requested: log the player's position every time the app is opened, to
+                // gather real coordinates for pinning where the van should spawn each
+                // game-day instead of the current "near the player" test-spawn offset.
+                if (Player.Local != null)
+                {
+                    var pos = Player.Local.PlayerBasePosition;
+                    MelonLogger.Msg($"GRQD: app opened at player position ({pos.x:F2}, {pos.y:F2}, {pos.z:F2}).");
+                }
+            }
         }
 
         private void RefreshContent()
@@ -87,8 +125,10 @@ namespace GRQD.App
                 UnityEngine.Object.Destroy(_content.GetChild(i).gameObject);
 
             float y = 0f;
-            const float rowHeight = 44f;
-            const float gap = 6f;
+            // Shrunk from the original full-screen-overlay sizing now that this is confined
+            // to the actual phone screen area (much smaller than the whole viewport).
+            const float rowHeight = 30f;
+            const float gap = 4f;
 
             y = AddSectionHeader(_content, "Driver Locker", y, rowHeight);
             y = AddLockerRow(_content, y, rowHeight, gap);
@@ -108,7 +148,7 @@ namespace GRQD.App
 
         private static float AddSectionHeader(Transform parent, string label, float y, float rowHeight)
         {
-            var text = UiFactory.CreateText(parent, label, 22, "Header");
+            var text = UiFactory.CreateText(parent, label, 16, "Header");
             var rect = (RectTransform)text.transform;
             PositionRow(rect, y, rowHeight);
             text.fontStyle = FontStyle.Bold;
@@ -123,7 +163,7 @@ namespace GRQD.App
                 ? $"Locker: {assigned.StorageEntityName} ({assigned.name})"
                 : "Locker: (none assigned)";
 
-            var text = UiFactory.CreateText(parent, label, 20, "LockerLabel");
+            var text = UiFactory.CreateText(parent, label, 14, "LockerLabel");
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.65f);
 
             var button = UiFactory.CreateButton(parent, options.Count == 0 ? "No lockers found" : "Cycle", () =>
@@ -142,7 +182,7 @@ namespace GRQD.App
         private static float AddDockRow(Transform parent, Property property, float y, float rowHeight, float gap)
         {
             bool enabled = DockRegistry.IsEnabled(property.PropertyCode);
-            var text = UiFactory.CreateText(parent, property.PropertyName, 20, "DockLabel");
+            var text = UiFactory.CreateText(parent, property.PropertyName, 14, "DockLabel");
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.65f);
 
             var button = UiFactory.CreateButton(parent, enabled ? "Enabled" : "Disabled", () =>
@@ -157,7 +197,7 @@ namespace GRQD.App
         private static float AddRouteRow(Transform parent, Route route, int index, float y, float rowHeight, float gap)
         {
             string label = $"{route.SourcePropertyCode} -> {route.DestinationPropertyCode} (dock #{route.DestinationLoadingDockIndex}, {route.Cadence})";
-            var text = UiFactory.CreateText(parent, label, 18, "RouteLabel");
+            var text = UiFactory.CreateText(parent, label, 12, "RouteLabel");
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.75f);
 
             var button = UiFactory.CreateButton(parent, "Remove", () => RouteManager.RemoveRouteAt(index), "RouteRemoveButton");
@@ -171,7 +211,7 @@ namespace GRQD.App
             var properties = DockRegistry.GetEligibleProperties();
             if (properties.Count == 0)
             {
-                UiFactory.CreateText(parent, "No eligible properties yet - enable a pickup dock above first.", 18, "NoPropsLabel");
+                UiFactory.CreateText(parent, "No eligible properties yet - enable a pickup dock above first.", 12, "NoPropsLabel");
                 return y + rowHeight;
             }
 

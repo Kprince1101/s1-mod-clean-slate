@@ -86,7 +86,7 @@ namespace GRQD
             {
                 _testVanSpawned = true;
                 var spawnPos = Player.Local.PlayerBasePosition + new Vector3(5f, 0f, 5f);
-                var van = Api.Vehicles.SpawnVan(spawnPos, Quaternion.identity, EVehicleColor.Cyan);
+                var van = Api.Vehicles.SpawnVan(spawnPos, Quaternion.identity, EVehicleColor.Cyan, livery: _icon);
                 LoggerInstance.Msg(van != null
                     ? $"GRQD test van spawned near player at {spawnPos}."
                     : "GRQD test van spawn failed.");

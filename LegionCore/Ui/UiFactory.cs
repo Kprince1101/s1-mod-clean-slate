@@ -70,7 +70,7 @@ namespace LegionCore.Ui
             var button = go.AddComponent<Button>();
             button.onClick.AddListener((UnityAction)onClick);
 
-            var label_ = CreateText(go.transform, label, 20, "Label");
+            var label_ = CreateText(go.transform, label, 14, "Label");
             label_.alignment = TextAnchor.MiddleCenter;
             var labelRect = (RectTransform)label_.transform;
             labelRect.anchorMin = Vector2.zero;

@@ -7,7 +7,11 @@ namespace LegionCore
     public interface IVehicleApi
     {
         bool IsReady { get; }
-        LandVehicle? SpawnVan(Vector3 position, Quaternion rotation, EVehicleColor color, bool playerOwned = false);
+
+        // livery, if given, is applied as a decal on both sides of the spawned van (see
+        // LegionCore.Vehicles.VanLivery) - optional so callers who don't care about branding
+        // (or haven't got a logo loaded yet) aren't forced to pass one.
+        LandVehicle? SpawnVan(Vector3 position, Quaternion rotation, EVehicleColor color, bool playerOwned = false, Sprite? livery = null);
     }
 
     public interface IDeliveryApi
