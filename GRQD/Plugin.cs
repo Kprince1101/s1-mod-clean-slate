@@ -4,10 +4,10 @@ using LegionCore;
 using MelonLoader;
 using UnityEngine;
 
-[assembly: MelonInfo(typeof(DeliveryDriver.Plugin), "Global Real Quick Delivery", "0.0.1", "Legion", null)]
+[assembly: MelonInfo(typeof(GRQD.Plugin), "Global Real Quick Delivery", "0.0.1", "Legion", null)]
 [assembly: MelonGame("TVGS", "Schedule I")]
 
-namespace DeliveryDriver
+namespace GRQD
 {
     public class Plugin : MelonMod
     {
@@ -21,7 +21,7 @@ namespace DeliveryDriver
         {
             Api.Initialize();
             Api.Delivery.RegisterShopTile(ShopName, ShopColor, ShopName);
-            LoggerInstance.Msg("Delivery Driver loaded.");
+            LoggerInstance.Msg("GRQD loaded.");
         }
 
         public override void OnUpdate()
@@ -30,7 +30,7 @@ namespace DeliveryDriver
 
             // Temporary: spawns one test van near the local player the first frame it's
             // possible. Proves spawn + color end-to-end before real route scheduling exists.
-            // Remove once routes drive real spawns (DD2 step 5).
+            // Remove once routes drive real spawns (build order step 5).
             if (_testVanSpawned || !Api.Vehicles.IsReady || Player.Local == null) return;
             _testVanSpawned = true;
 

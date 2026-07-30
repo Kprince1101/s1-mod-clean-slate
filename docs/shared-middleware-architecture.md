@@ -16,7 +16,7 @@ changes below happen.
 
 ## 1. Project
 
-New project at repo root, sibling to `CleanSlate/` and `DeliveryDriver/`:
+New project at repo root, sibling to `CleanSlate/` and `GRQD/`:
 
 ```
 LegionCore/
@@ -43,7 +43,7 @@ LegionCore/
 ```
 
 Both mods add a `ProjectReference` to this project and delete their own `Middleware/`
-folders (`CleanSlate/Middleware/Notifications.cs`, `DeliveryDriver/Middleware/*.cs`) — logic
+folders (`CleanSlate/Middleware/Notifications.cs`, `GRQD/Middleware/*.cs`) — logic
 moves in, call sites update to call the shared API instead. `AGENTS.md`'s middleware rule
 gets rewritten to point here.
 

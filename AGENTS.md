@@ -59,4 +59,5 @@ hard dependency is not).
 - `docs/shared-middleware-architecture.md` — `LegionCore`'s design (locked).
 - `docs/` — specs, one per mod/feature, written before build work starts on that feature.
 
-Current mods: `CleanSlate/` (storefront/economy), `DeliveryDriver/` (logistics NPC, "Fry").
+Current mods: `CleanSlate/` (storefront/economy), `GRQD/` (van logistics, van-only, no driver
+NPC).

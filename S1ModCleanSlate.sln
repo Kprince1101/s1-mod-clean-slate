@@ -5,7 +5,7 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CleanSlate", "CleanSlate\CleanSlate.csproj", "{98030587-FC02-401A-A9BC-B94685598AE2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeliveryDriver", "DeliveryDriver\DeliveryDriver.csproj", "{9FFF7FFF-BF7B-44E5-95E6-11D8AE6B8797}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GRQD", "GRQD\GRQD.csproj", "{9FFF7FFF-BF7B-44E5-95E6-11D8AE6B8797}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LegionCore", "LegionCore\LegionCore.csproj", "{C1B2A3D4-5E6F-4A7B-8C9D-0E1F2A3B4C5D}"
 EndProject

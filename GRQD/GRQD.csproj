@@ -6,8 +6,8 @@
 		<LangVersion>latest</LangVersion>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<AssemblyName>DeliveryDriver</AssemblyName>
-		<RootNamespace>DeliveryDriver</RootNamespace>
+		<AssemblyName>GRQD</AssemblyName>
+		<RootNamespace>GRQD</RootNamespace>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<IsPackable>false</IsPackable>
 		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
