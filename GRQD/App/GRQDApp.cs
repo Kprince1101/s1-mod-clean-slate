@@ -25,7 +25,7 @@ namespace GRQD.App
         private int _pendingSourceIndex;
         private int _pendingDestIndex;
 
-        protected override void Awake()
+        public override void Awake()
         {
             // Must be set before base.Awake() runs OnStartClient -> GenerateHomeScreenIcon,
             // which reads AppIcon/IconLabel, and before Start() reads appContainer.
