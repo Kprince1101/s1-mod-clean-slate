@@ -106,7 +106,7 @@ MVP explicitly defers: multi-zone, handler/dock delivery automation, laundering 
 5. **Laundering:** per-business toggle or global? How does "through the bank" interact with the base game's existing laundering mechanics?
 6. **Specials:** how is the "special" selected and surfaced to the player? UI/notification?
 7. **Relationship to OTC (OverTheCounter):** OTC covered similar ground (storefronts, budtenders, Vic-laundering) but is abandoned/version-broken. Decide: from-scratch clean take, or reference its approach? Position Clean Slate as the maintained, current-version storefront mod.
-8. **Base-game version target:** build against current beta (0.4.6f8) from the start to avoid OTC's version-drift fate.
+8. **Base-game version target:** build against current beta (0.4.6f9) from the start to avoid OTC's version-drift fate.
 
 ---
 
@@ -150,6 +150,6 @@ MVP explicitly defers: multi-zone, handler/dock delivery automation, laundering 
   - Random weekly mixed-product special + surfacing
 
 - **Docket: Ship**
-  - Test on Vortex against 0.4.6f8
+  - Test on Vortex against 0.4.6f9
   - Thunderstore publish (credit conventions, descriptive tagline for discoverability)
   - Community funnel note: warm audience for Poker Defense

@@ -2,7 +2,7 @@
 
 **Company name:** Global Real Quick Delivery (GRQD)
 **Driver:** Fry (Futurama resemblance)
-**Type:** Schedule I content mod (MelonLoader / C#, current game version 0.4.6f8+)
+**Type:** Schedule I content mod (MelonLoader / C#, current game version 0.4.6f9+)
 **Status:** Spec — build this FIRST (de-risks NPC/vehicle/storage questions before Clean Slate depends on them)
 **Author:** Legion
 
@@ -188,6 +188,6 @@ tied to route stops).
 1. `Middleware/Docks.cs` — custom dock at fixed test position
 2. `Middleware/StorageTransfer.cs` — locker-to-locker transfer helper
 3. `Middleware/DeliveryVehicles.cs` — spawn + navigate wrapper
-4. Integration — wire all three into one end-to-end delivery loop, test in-game on Vortex against 0.4.6f8
+4. Integration — wire all three into one end-to-end delivery loop, test in-game on Vortex against 0.4.6f9
 5. Route UX — GRQD phone app page (teal, up to 5 routes, pay locker designation, route status)
 6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable
