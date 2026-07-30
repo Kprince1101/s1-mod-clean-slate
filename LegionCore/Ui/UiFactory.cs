@@ -1,4 +1,5 @@
 using Il2CppScheduleOne.UI.Phone;
+using MelonLoader;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
@@ -116,7 +117,27 @@ namespace LegionCore.Ui
 
                 if (iconImage != null && labelText != null && clonedButton != null)
                 {
-                    if (icon != null) iconImage.sprite = icon;
+                    if (icon != null)
+                    {
+                        iconImage.sprite = icon;
+                        // Defensive: the vanilla prefab's Mask/Image is presumably already
+                        // configured correctly (vanilla's own HomeScreen.GenerateAppIcon<T>
+                        // does nothing more than the sprite assignment above), but force these
+                        // explicitly in case the runtime-created Sprite trips a Sliced/Filled
+                        // type or a non-white tint baked into the prefab that only mattered for
+                        // the original placeholder art.
+                        iconImage.type = Image.Type.Simple;
+                        iconImage.color = Color.white;
+                    }
+
+                    // Diagnostic: confirm exactly what we ended up with, since the reported
+                    // symptom (flat white square) is indistinguishable at a glance from "sprite
+                    // never got set" vs "sprite set but texture is blank/wrong".
+                    var tex = iconImage.sprite != null ? iconImage.sprite.texture : null;
+                    MelonLogger.Msg($"GRQD-UI: home icon sprite assigned={(iconImage.sprite != null)} " +
+                        $"texture={(tex != null ? $"{tex.width}x{tex.height} fmt={tex.format}" : "null")} " +
+                        $"imageColor={iconImage.color} imageType={iconImage.type}");
+
                     labelText.text = label;
 
                     // Vanilla apps use this for unread-message-style badges - not relevant to
@@ -129,6 +150,8 @@ namespace LegionCore.Ui
                     return clonedButton;
                 }
 
+                MelonLogger.Warning($"GRQD-UI: home icon prefab clone missing expected children - " +
+                    $"iconImage={(iconImage != null)} labelText={(labelText != null)} clonedButton={(clonedButton != null)}");
                 UnityEngine.Object.Destroy(clone);
             }
 
@@ -165,13 +188,28 @@ namespace LegionCore.Ui
         public static Sprite? LoadEmbeddedSprite(System.Reflection.Assembly assembly, string resourceName)
         {
             using var stream = assembly.GetManifestResourceStream(resourceName);
-            if (stream == null) return null;
+            if (stream == null)
+            {
+                // Log every resource name actually embedded in the assembly - if "resourceName"
+                // is even slightly off (namespace prefix, casing, LogicalName typo) this tells
+                // us immediately instead of silently falling back to the procedural placeholder.
+                var names = string.Join(", ", assembly.GetManifestResourceNames());
+                MelonLogger.Warning($"GRQD-UI: embedded resource '{resourceName}' not found. Available: [{names}]");
+                return null;
+            }
 
             using var memory = new System.IO.MemoryStream();
             stream.CopyTo(memory);
+            var bytes = memory.ToArray();
 
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            if (!tex.LoadImage(memory.ToArray())) return null;
+            if (!tex.LoadImage(bytes))
+            {
+                MelonLogger.Warning($"GRQD-UI: LoadImage failed to decode '{resourceName}' ({bytes.Length} bytes read).");
+                return null;
+            }
+
+            MelonLogger.Msg($"GRQD-UI: loaded embedded sprite '{resourceName}' - {bytes.Length} bytes -> {tex.width}x{tex.height} texture (format={tex.format}).");
             return Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
         }
 
