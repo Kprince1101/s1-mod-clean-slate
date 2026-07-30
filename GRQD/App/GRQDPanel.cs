@@ -28,6 +28,13 @@ namespace GRQD.App
     {
         public GRQDPanel(IntPtr ptr) : base(ptr) { }
 
+        // Whitish, opaque background (was a translucent near-black - reported as "seems
+        // transparent" once the missing HomeScreen-hide fix below stopped icons showing
+        // through). Text/buttons switched to dark-on-light / teal-brand-on-light to match.
+        private static readonly Color BackgroundColor = new Color(0.96f, 0.96f, 0.94f, 1f);
+        private static readonly Color TextColor = new Color(0.12f, 0.12f, 0.12f, 1f);
+        private static readonly Color AccentColor = new Color(0f, 0.5f, 0.5f, 1f); // matches Plugin.ShopColor
+
         private GameObject? _root;
         private RectTransform? _content;
         private int _pendingSourceIndex;
@@ -49,13 +56,10 @@ namespace GRQD.App
             Transform parent = transform;
             if (AppsCanvas.InstanceExists)
             {
-                var appsCanvas = AppsCanvas.Instance;
-                // Vanilla only enables this canvas via a real App<T>.SetOpen()/Phone-open
-                // flow, which GRQDPanel doesn't participate in (see GRQD/Plugin.cs for why
-                // it's not an App<T>). Force it on once - permanently enabled is harmless,
-                // an enabled Canvas with nothing active under it draws nothing extra.
-                appsCanvas.canvas.enabled = true;
-                parent = appsCanvas.canvas.transform;
+                // Canvas enabling is now handled properly in Toggle() (mirroring App<T>.
+                // SetOpen()'s AppsCanvas.SetIsOpen call) instead of being force-enabled
+                // permanently here - see Toggle() for why that matters.
+                parent = AppsCanvas.Instance.canvas.transform;
             }
 
             var container = UiFactory.CreatePanel(parent, Color.clear, "GRQDPanel_Root");
@@ -66,20 +70,22 @@ namespace GRQD.App
             _root = container.gameObject;
             _root.SetActive(false);
 
-            var root = UiFactory.CreatePanel(container, new Color(0.05f, 0.05f, 0.05f, 0.92f), "Background");
+            var root = UiFactory.CreatePanel(container, BackgroundColor, "Background");
             root.anchorMin = new Vector2(0.03f, 0.03f);
             root.anchorMax = new Vector2(0.97f, 0.97f);
             root.offsetMin = Vector2.zero;
             root.offsetMax = Vector2.zero;
 
-            var title = UiFactory.CreateText(root, "Global Real Quick Delivery", 20, "Title");
+            var title = UiFactory.CreateText(root, "Global Real Quick Delivery", 20, "Title", AccentColor);
+            title.fontStyle = FontStyle.Bold;
             var titleRect = (RectTransform)title.transform;
             titleRect.anchorMin = new Vector2(0f, 0.93f);
             titleRect.anchorMax = new Vector2(1f, 1f);
             titleRect.offsetMin = new Vector2(10f, 0f);
             titleRect.offsetMax = new Vector2(-10f, 0f);
 
-            var closeButton = UiFactory.CreateButton(root, "Close", Toggle, "CloseButton");
+            var closeButton = UiFactory.CreateButton(root, "Close", Toggle, "CloseButton",
+                backgroundColor: new Color(0.82f, 0.82f, 0.8f, 1f), textColor: TextColor);
             var closeRect = (RectTransform)closeButton.transform;
             closeRect.anchorMin = new Vector2(0.8f, 0.935f);
             closeRect.anchorMax = new Vector2(0.99f, 0.995f);
@@ -94,12 +100,31 @@ namespace GRQD.App
         }
 
         // Wired directly to the home-screen icon's onClick (see UiFactory.InstallHomeScreenIcon
-        // in GRQD/Plugin.cs) - no Phone/HomeScreen open-state hook, keep it simple for v1.
+        // in GRQD/Plugin.cs).
         public void Toggle()
         {
             if (_root == null) return;
             bool willOpen = !_root.activeSelf;
             _root.SetActive(willOpen);
+
+            // Mirrors the parts of the real App<T>.SetOpen() (see reference/decompiled/
+            // ScheduleOne.UI/App.cs) that GRQDPanel doesn't get automatically since it isn't
+            // a real App<T> (see the class comment above for why). Without these three calls:
+            //  - AppsCanvas stayed permanently force-enabled (old code), which is harmless on
+            //    its own, but combined with the next point made the screen look like a mess.
+            //  - HomeScreen's icon grid never hid itself, so it kept rendering behind/through
+            //    our panel - confirmed via screenshot showing app icons and our text
+            //    overlapping. That's also why the background read as "transparent": it wasn't
+            //    literally transparent, just visually competing with a fully lit icon grid.
+            //  - Phone never rotated into the horizontal "reading" pose - real apps trigger
+            //    this via Phone.SetIsHorizontal in SetOpen(), driven by the app's own
+            //    Orientation setting. Delivery uses Horizontal; GRQD's content (side-by-side
+            //    buttons, wide route rows) fits the same mold, and this is exactly what the
+            //    user meant by "it needs to rotate the phone just like the delivery app does".
+            if (AppsCanvas.InstanceExists) AppsCanvas.Instance.SetIsOpen(willOpen);
+            if (HomeScreen.InstanceExists) HomeScreen.Instance.SetIsOpen(!willOpen);
+            if (Phone.InstanceExists) Phone.Instance.SetIsHorizontal(willOpen);
+
             if (willOpen)
             {
                 RefreshContent();
@@ -148,7 +173,7 @@ namespace GRQD.App
 
         private static float AddSectionHeader(Transform parent, string label, float y, float rowHeight)
         {
-            var text = UiFactory.CreateText(parent, label, 16, "Header");
+            var text = UiFactory.CreateText(parent, label, 16, "Header", TextColor);
             var rect = (RectTransform)text.transform;
             PositionRow(rect, y, rowHeight);
             text.fontStyle = FontStyle.Bold;
@@ -163,7 +188,7 @@ namespace GRQD.App
                 ? $"Locker: {assigned.StorageEntityName} ({assigned.name})"
                 : "Locker: (none assigned)";
 
-            var text = UiFactory.CreateText(parent, label, 14, "LockerLabel");
+            var text = UiFactory.CreateText(parent, label, 14, "LockerLabel", TextColor);
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.65f);
 
             var button = UiFactory.CreateButton(parent, options.Count == 0 ? "No lockers found" : "Cycle", () =>
@@ -173,7 +198,7 @@ namespace GRQD.App
                 int currentIndex = options.FindIndex(o => o.Key == currentKey);
                 int nextIndex = (currentIndex + 1) % options.Count;
                 LockerRegistry.SetAssignedKey(options[nextIndex].Key);
-            }, "LockerCycleButton");
+            }, "LockerCycleButton", backgroundColor: AccentColor, textColor: Color.white);
             PositionRow((RectTransform)button.transform, y, rowHeight, xFraction: 0.68f, widthFraction: 0.32f);
 
             return y + rowHeight + gap;
@@ -182,13 +207,13 @@ namespace GRQD.App
         private static float AddDockRow(Transform parent, Property property, float y, float rowHeight, float gap)
         {
             bool enabled = DockRegistry.IsEnabled(property.PropertyCode);
-            var text = UiFactory.CreateText(parent, property.PropertyName, 14, "DockLabel");
+            var text = UiFactory.CreateText(parent, property.PropertyName, 14, "DockLabel", TextColor);
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.65f);
 
             var button = UiFactory.CreateButton(parent, enabled ? "Enabled" : "Disabled", () =>
             {
                 DockRegistry.SetEnabled(property.PropertyCode, !DockRegistry.IsEnabled(property.PropertyCode));
-            }, "DockToggleButton");
+            }, "DockToggleButton", backgroundColor: AccentColor, textColor: Color.white);
             PositionRow((RectTransform)button.transform, y, rowHeight, xFraction: 0.68f, widthFraction: 0.32f);
 
             return y + rowHeight + gap;
@@ -197,10 +222,11 @@ namespace GRQD.App
         private static float AddRouteRow(Transform parent, Route route, int index, float y, float rowHeight, float gap)
         {
             string label = $"{route.SourcePropertyCode} -> {route.DestinationPropertyCode} (dock #{route.DestinationLoadingDockIndex}, {route.Cadence})";
-            var text = UiFactory.CreateText(parent, label, 12, "RouteLabel");
+            var text = UiFactory.CreateText(parent, label, 12, "RouteLabel", TextColor);
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.75f);
 
-            var button = UiFactory.CreateButton(parent, "Remove", () => RouteManager.RemoveRouteAt(index), "RouteRemoveButton");
+            var button = UiFactory.CreateButton(parent, "Remove", () => RouteManager.RemoveRouteAt(index), "RouteRemoveButton",
+                backgroundColor: AccentColor, textColor: Color.white);
             PositionRow((RectTransform)button.transform, y, rowHeight, xFraction: 0.78f, widthFraction: 0.22f);
 
             return y + rowHeight + gap;
@@ -211,7 +237,7 @@ namespace GRQD.App
             var properties = DockRegistry.GetEligibleProperties();
             if (properties.Count == 0)
             {
-                UiFactory.CreateText(parent, "No eligible properties yet - enable a pickup dock above first.", 12, "NoPropsLabel");
+                UiFactory.CreateText(parent, "No eligible properties yet - enable a pickup dock above first.", 12, "NoPropsLabel", TextColor);
                 return y + rowHeight;
             }
 
@@ -222,14 +248,14 @@ namespace GRQD.App
             {
                 _pendingSourceIndex = (_pendingSourceIndex + 1) % properties.Count;
                 RefreshContent();
-            }, "PendingSourceButton");
+            }, "PendingSourceButton", backgroundColor: AccentColor, textColor: Color.white);
             PositionRow((RectTransform)sourceButton.transform, y, rowHeight, widthFraction: 0.48f);
 
             var destButton = UiFactory.CreateButton(parent, "Dest: " + properties[_pendingDestIndex].PropertyName, () =>
             {
                 _pendingDestIndex = (_pendingDestIndex + 1) % properties.Count;
                 RefreshContent();
-            }, "PendingDestButton");
+            }, "PendingDestButton", backgroundColor: AccentColor, textColor: Color.white);
             PositionRow((RectTransform)destButton.transform, y, rowHeight, xFraction: 0.5f, widthFraction: 0.48f);
 
             y += rowHeight + gap;
@@ -245,7 +271,7 @@ namespace GRQD.App
                 };
                 RouteManager.TryAddRoute(route, out _);
                 RefreshContent();
-            }, "AddRouteButton");
+            }, "AddRouteButton", backgroundColor: AccentColor, textColor: Color.white);
             PositionRow((RectTransform)addButton.transform, y, rowHeight, widthFraction: 1f);
 
             return y + rowHeight + gap;

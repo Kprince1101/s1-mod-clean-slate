@@ -42,7 +42,7 @@ namespace LegionCore.Ui
             return (RectTransform)go.transform;
         }
 
-        public static Text CreateText(Transform parent, string content, int fontSize = 24, string name = "Text")
+        public static Text CreateText(Transform parent, string content, int fontSize = 24, string name = "Text", Color? color = null)
         {
             var go = new GameObject(name);
             go.AddComponent<RectTransform>();
@@ -51,7 +51,7 @@ namespace LegionCore.Ui
             text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = fontSize;
             text.text = content;
-            text.color = Color.white;
+            text.color = color ?? Color.white;
             text.alignment = TextAnchor.MiddleLeft;
             text.horizontalOverflow = HorizontalWrapMode.Wrap;
             return text;
@@ -61,17 +61,18 @@ namespace LegionCore.Ui
         // Il2CppSystem.Action<T> - see DeliveryShopTileFactory's OnSelect cast) isn't a true
         // delegate type, so a bare lambda can't implicitly convert to it at the call site. One
         // explicit cast here beats needing (UnityAction)(() => ...) at every call site.
-        public static Button CreateButton(Transform parent, string label, System.Action onClick, string name = "Button")
+        public static Button CreateButton(Transform parent, string label, System.Action onClick, string name = "Button",
+            Color? backgroundColor = null, Color? textColor = null)
         {
             var go = new GameObject(name);
             go.AddComponent<RectTransform>();
             go.transform.SetParent(parent, false);
             var image = go.AddComponent<Image>();
-            image.color = new Color(1f, 1f, 1f, 0.15f);
+            image.color = backgroundColor ?? new Color(1f, 1f, 1f, 0.15f);
             var button = go.AddComponent<Button>();
             button.onClick.AddListener((UnityAction)onClick);
 
-            var label_ = CreateText(go.transform, label, 14, "Label");
+            var label_ = CreateText(go.transform, label, 14, "Label", textColor);
             label_.alignment = TextAnchor.MiddleCenter;
             var labelRect = (RectTransform)label_.transform;
             labelRect.anchorMin = Vector2.zero;
