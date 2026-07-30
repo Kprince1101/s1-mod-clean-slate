@@ -11,9 +11,14 @@ namespace DeliveryDriver.Middleware
     [HarmonyPatch(typeof(VehicleManager), "Start")]
     internal static class VehicleManager_Start_Probe
     {
+        private static bool _logged;
+
         [HarmonyPostfix]
         private static void Postfix(VehicleManager __instance)
         {
+            if (_logged) return;
+            _logged = true;
+
             var prefabs = __instance.VehiclePrefabs;
             if (prefabs == null)
             {
