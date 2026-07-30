@@ -5,7 +5,7 @@ namespace LegionCore
 {
     internal static class VersionGuard
     {
-        public const string SupportedGameVersion = "0.4.6f9";
+        public const string SupportedGameVersion = "0.4.6f10";
 
         private static bool _checked;
 
