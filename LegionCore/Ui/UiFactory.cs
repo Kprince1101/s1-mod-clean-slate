@@ -210,7 +210,24 @@ namespace LegionCore.Ui
             }
 
             MelonLogger.Msg($"GRQD-UI: loaded embedded sprite '{resourceName}' - {bytes.Length} bytes -> {tex.width}x{tex.height} texture (format={tex.format}).");
-            return Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            ProtectFromUnload(tex);
+            var sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            ProtectFromUnload(sprite);
+            return sprite;
+        }
+
+        // Diagnostic from the previous pass caught the real bug behind the blank-white home
+        // icon: "GRQD-UI: home icon sprite assigned=False" - the Sprite created here in
+        // OnInitializeMelon (main menu, before any scene with our icon's GameObject exists) was
+        // going Unity-fake-null (icon != null evaluated false) by the time InstallHomeScreenIcon
+        // ran ~27s later. A Texture2D/Sprite created at runtime and not yet referenced by any
+        // live scene object is exactly what Unity's asset-unload passes (Resources.
+        // UnloadUnusedAssets, and the implicit ones during scene loads - here, main menu -> save
+        // load) reclaim. DontUnloadUnusedAsset is the standard fix: it excludes the object from
+        // that cleanup regardless of whether anything is holding a "real" reference yet.
+        private static void ProtectFromUnload(UnityEngine.Object obj)
+        {
+            obj.hideFlags |= HideFlags.DontUnloadUnusedAsset;
         }
 
         // A flat-color square sprite - used for a mod's app icon when no real art exists yet.
@@ -221,7 +238,10 @@ namespace LegionCore.Ui
             for (int i = 0; i < pixels.Length; i++) pixels[i] = color;
             tex.SetPixels(pixels);
             tex.Apply();
-            return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+            ProtectFromUnload(tex);
+            var sprite = Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+            ProtectFromUnload(sprite);
+            return sprite;
         }
 
         // Procedural placeholder logo - a white ringed planet (Planet Express-adjacent, per
@@ -261,7 +281,10 @@ namespace LegionCore.Ui
 
             tex.SetPixels(pixels);
             tex.Apply();
-            return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+            ProtectFromUnload(tex);
+            var sprite = Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+            ProtectFromUnload(sprite);
+            return sprite;
         }
     }
 }

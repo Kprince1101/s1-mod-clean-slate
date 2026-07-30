@@ -1,24 +1,28 @@
+using Il2CppScheduleOne.Graffiti;
 using Il2CppScheduleOne.Vehicles;
 using MelonLoader;
 using UnityEngine;
 
 namespace LegionCore.Vehicles
 {
-    // Slaps a logo decal on both sides of a spawned van - two flat quads, textured with the
-    // given sprite, parented to the van so they move/rotate with it. Not a real paint-job
-    // (no UV work on the actual body mesh - see ScheduleOne.Vehicles.VehicleColor for how
-    // vanilla recolors work, by cloning/recoloring a body material by index; there's no
-    // equivalent per-mesh decal slot exposed for arbitrary logos), just two applique panels
-    // floating just off the door surface. Position/size used to be a blind guess (no local
-    // build/render environment here to check against the real "veeper" van model) - now
-    // measured from the van's actual MeshRenderer bounds at spawn time instead, so placement
-    // adapts to the real model. Still logs the measured numbers via MelonLogger in case a
-    // screenshot shows it needs further tuning.
+    // Slaps a logo decal on both sides of a spawned van. Every van in-game already ships with
+    // ScheduleOne.Graffiti.SpraySurface components (that's the player spray-paint "canvas" -
+    // confirmed from a screenshot of real in-game van graffiti, and from LandVehicle.cs, which
+    // keeps a private _spraySurfaces array populated via GetComponentsInChildren<SpraySurface>()
+    // for save/load). Each SpraySurface exposes exactly the artist-placed real-world geometry
+    // for its panel (BottomLeftPoint transform + Width/Height in "paint pixels", PIXEL_SIZE
+    // converts pixels -> world units, CenterPoint is already computed) - so instead of guessing
+    // where the side panels are, we read that data directly and place our own textured quad to
+    // match it. We do NOT use the surface's actual stroke/drawing/networking system (that's a
+    // NetworkBehaviour-driven, server-authoritative pixel painter meant for the player's spray
+    // can tool - far more machinery than a static logo decal needs); this only borrows its
+    // *placement* data. Falls back to a measured-bounds guess if a van has no SpraySurfaces at
+    // all (shouldn't happen for a real vehicle, but cheap insurance against a modded/odd model).
     public static class VanLivery
     {
         private static Shader? _spriteShader;
 
-        public static void Apply(LandVehicle? van, Sprite? logo, float worldSize = 1.1f)
+        public static void Apply(LandVehicle? van, Sprite? logo)
         {
             if (van == null || logo == null)
             {
@@ -26,14 +30,50 @@ namespace LegionCore.Vehicles
                 return;
             }
 
-            // The old hardcoded offsets (localPosition ~0.95/0.9, scale 1.1) were pure
-            // guesswork with no real van dimensions to check against - almost certainly why
-            // "van has no livery" was reported (decal buried inside the mesh, or floating far
-            // outside it). Measure the van's ACTUAL local-space bounding box instead and derive
-            // position/size from that, so placement is correct regardless of the real model's
-            // dimensions (assumes the standard Unity vehicle convention already used elsewhere
-            // in this file - local +X = right, +Y = up, +Z = forward).
+            var surfaces = van.GetComponentsInChildren<SpraySurface>();
+            MelonLogger.Msg($"GRQD-Livery: found {surfaces.Length} SpraySurface(s) on van.");
+
+            if (surfaces.Length == 0)
+            {
+                ApplyFallback(van, logo);
+                return;
+            }
+
+            for (int i = 0; i < surfaces.Length; i++)
+            {
+                var surface = surfaces[i];
+                if (surface == null || surface.BottomLeftPoint == null) continue;
+
+                var worldWidth = surface.Width * SpraySurface.PIXEL_SIZE;
+                var worldHeight = surface.Height * SpraySurface.PIXEL_SIZE;
+                // Fit our square logo inside the panel with some margin rather than stretching
+                // it to fill a (probably non-square) canvas.
+                var decalSize = Mathf.Min(worldWidth, worldHeight) * 0.7f;
+                var worldCenter = surface.CenterPoint;
+                // BottomLeftPoint.forward is the surface's outward paint normal (SpraySurface.
+                // ToWorldPosition offsets along this same local +Z for paint depth) - aligning
+                // our quad's rotation to it puts the decal flush with the panel, facing out.
+                var worldRotation = surface.BottomLeftPoint.rotation;
+
+                MelonLogger.Msg($"GRQD-Livery: surface[{i}] '{surface.name}' panel={surface.Width}x{surface.Height}px " +
+                    $"({worldWidth:F2}x{worldHeight:F2}m) center={worldCenter} decalSize={decalSize:F2}.");
+
+                CreateDecal(van.transform, logo, worldCenter, worldRotation, decalSize);
+            }
+        }
+
+        // Only reached if a spawned "van" genuinely has no graffiti-surface components at all -
+        // measures the mesh bounds instead so there's still *something* visible rather than
+        // nothing, using the standard Unity vehicle convention (local +X = right, +Z = forward).
+        private static void ApplyFallback(LandVehicle van, Sprite logo)
+        {
             var renderers = van.GetComponentsInChildren<MeshRenderer>();
+            if (renderers.Length == 0)
+            {
+                MelonLogger.Warning("GRQD-Livery: van has no MeshRenderer children either - can't place a fallback decal.");
+                return;
+            }
+
             Vector3 localMin = Vector3.positiveInfinity, localMax = Vector3.negativeInfinity;
             for (int i = 0; i < renderers.Length; i++)
             {
@@ -49,32 +89,25 @@ namespace LegionCore.Vehicles
                 }
             }
 
-            if (renderers.Length == 0)
-            {
-                MelonLogger.Warning("GRQD-Livery: van has no MeshRenderer children - can't measure bounds, falling back to old guessed offsets.");
-                CreateDecal(van.transform, logo, new Vector3(0.95f, 0.9f, 0f), worldSize);
-                CreateDecal(van.transform, logo, new Vector3(-0.95f, 0.9f, 0f), worldSize);
-                return;
-            }
-
             var localSize = localMax - localMin;
             var localCenter = (localMin + localMax) * 0.5f;
-            MelonLogger.Msg($"GRQD-Livery: van local bounds size={localSize} center={localCenter} (from {renderers.Length} renderers).");
+            MelonLogger.Msg($"GRQD-Livery: fallback - van local bounds size={localSize} center={localCenter} (from {renderers.Length} renderers).");
 
-            // Decal size: a fraction of van height, clamped to something reasonable in case the
-            // measured bounds are degenerate (e.g. a single tiny placeholder collider mesh).
             float decalSize = Mathf.Clamp(localSize.y * 0.5f, 0.4f, 2.5f);
-            // Just past the outer edge of the body so it sits on the surface instead of inside
-            // the mesh or floating far off it.
             float sideOffset = localMax.x + 0.03f;
-            float heightPos = localCenter.y + localSize.y * 0.05f; // roughly door height, slightly above center
+            float heightPos = localCenter.y + localSize.y * 0.05f;
             float forwardPos = localCenter.z;
 
-            CreateDecal(van.transform, logo, new Vector3(sideOffset, heightPos, forwardPos), decalSize);   // right side
-            CreateDecal(van.transform, logo, new Vector3(-sideOffset, heightPos, forwardPos), decalSize, mirrored: true); // left side
+            var rightWorldPos = van.transform.TransformPoint(new Vector3(sideOffset, heightPos, forwardPos));
+            var leftWorldPos = van.transform.TransformPoint(new Vector3(-sideOffset, heightPos, forwardPos));
+            var rightRot = Quaternion.LookRotation(van.transform.right, van.transform.up);
+            var leftRot = Quaternion.LookRotation(-van.transform.right, van.transform.up);
+
+            CreateDecal(van.transform, logo, rightWorldPos, rightRot, decalSize);
+            CreateDecal(van.transform, logo, leftWorldPos, leftRot, decalSize);
         }
 
-        private static void CreateDecal(Transform vanTransform, Sprite logo, Vector3 localPosition, float worldSize, bool mirrored = false)
+        private static void CreateDecal(Transform vanTransform, Sprite logo, Vector3 worldPosition, Quaternion worldRotation, float worldSize)
         {
             var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
             go.name = "GRQD_LiveryDecal";
@@ -84,13 +117,12 @@ namespace LegionCore.Vehicles
             var collider = go.GetComponent<Collider>();
             if (collider != null) UnityEngine.Object.Destroy(collider);
 
-            go.transform.SetParent(vanTransform, false);
-            go.transform.localPosition = localPosition;
-            // Face outward along local +X or -X depending on side, so the decal is visible from
-            // outside the van rather than facing into the body.
-            var faceDir = mirrored ? Vector3.left : Vector3.right;
-            go.transform.localRotation = Quaternion.LookRotation(faceDir, Vector3.up);
+            go.transform.position = worldPosition;
+            go.transform.rotation = worldRotation;
             go.transform.localScale = new Vector3(worldSize, worldSize, 1f);
+            // worldPositionStays: true - keeps the world placement we just set while still
+            // following the van's own transform for movement/rotation from here on.
+            go.transform.SetParent(vanTransform, true);
 
             var renderer = go.GetComponent<MeshRenderer>();
             if (renderer != null)
@@ -100,11 +132,11 @@ namespace LegionCore.Vehicles
                 material.mainTexture = logo.texture;
                 material.color = Color.white;
                 renderer.material = material;
-                MelonLogger.Msg($"GRQD-Livery: decal placed at localPos={localPosition} scale={worldSize} shaderFound={shader != null}.");
+                MelonLogger.Msg($"GRQD-Livery: decal placed at worldPos={worldPosition} scale={worldSize} shaderFound={shader != null}.");
             }
             else
             {
-                MelonLogger.Warning($"GRQD-Livery: decal at localPos={localPosition} has no MeshRenderer - texture not applied.");
+                MelonLogger.Warning($"GRQD-Livery: decal at worldPos={worldPosition} has no MeshRenderer - texture not applied.");
             }
         }
 
