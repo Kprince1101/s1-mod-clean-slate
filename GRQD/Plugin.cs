@@ -1,7 +1,10 @@
-using Il2CppScheduleOne.Persistence;
+using Il2CppInterop.Runtime.Injection;
 using Il2CppScheduleOne.PlayerScripts;
+using Il2CppScheduleOne.UI.Phone;
 using Il2CppScheduleOne.Vehicles.Modification;
+using GRQD.App;
 using LegionCore;
+using LegionCore.Delivery;
 using MelonLoader;
 using UnityEngine;
 
@@ -14,16 +17,22 @@ namespace GRQD
     {
         // GRQD's own branding - see docs/grqd-spec.md "Aesthetic / Branding". The shop tile
         // clones a vanilla template's model/prefab via LegionCore; only ShopColor is ours.
+        // Kept alongside the new GRQDApp for now as a cheap secondary smoke test - not the
+        // primary UI going forward (see conversation history: GRQD gets its own dedicated
+        // phone app instead of living inside the vanilla Delivery app).
         private const string ShopName = "Global Real Quick Delivery";
         private static readonly Color ShopColor = new Color(0f, 0.5f, 0.5f); // teal
 
         private bool _sent;
         private bool _testVanSpawned;
-        private float _nextDiagLogTime;
+        private bool _appSpawned;
 
         public override void OnInitializeMelon()
         {
             Api.Initialize();
+
+            // Must happen before anything tries to construct a GRQDApp instance.
+            ClassInjector.RegisterTypeInIl2Cpp<GRQDApp>();
 
             // Queued immediately - LegionCore installs it the next time DeliveryApp.Start()
             // fires, whenever that is. shopInterfaceName left blank: LegionCore blocks
@@ -34,28 +43,24 @@ namespace GRQD
             LoggerInstance.Msg("GRQD loaded, waiting for NotificationsManager...");
         }
 
-        // Temporary: spawns one test van near the local player the first frame the game is
-        // ready. Proves spawn + color end-to-end before real route scheduling exists. Remove
-        // once routes drive real spawns (see docs/grqd-spec.md Core Mechanics).
         public override void OnUpdate()
         {
             Api.CheckVersion();
 
-            // TEMP diagnostic: the van/shop-tile hooks below never fired in testing despite
-            // several minutes of play, with no exceptions logged either - meaning Api.IsGameReady
-            // (LegionCore.Readiness.Check()) itself is likely never flipping true. This prints
-            // every ~3s until it does, so we can see exactly which sub-condition is stuck.
-            // Remove once confirmed working.
-            if (!Api.IsGameReady && Time.time >= _nextDiagLogTime)
+            // Also gated on Phone/HomeScreen existing - both are PlayerSingleton<T>s tied to
+            // the local player's own UI and should be up by the time Api.IsGameReady flips,
+            // but this avoids a race if they initialize a beat later than Player.Local does.
+            if (!_appSpawned && Api.IsGameReady && Phone.InstanceExists && HomeScreen.InstanceExists)
             {
-                _nextDiagLogTime = Time.time + 3f;
-                bool lmExists = LoadManager.InstanceExists;
-                LoggerInstance.Msg("GRQD diag: LoadManager.InstanceExists=" + lmExists
-                    + ", IsGameLoaded=" + (lmExists ? LoadManager.Instance.IsGameLoaded.ToString() : "n/a")
-                    + ", LoadStatus=" + (lmExists ? LoadManager.Instance.LoadStatus.ToString() : "n/a")
-                    + ", Player.Local!=null=" + (Player.Local != null));
+                _appSpawned = true;
+                DockRegistry.RestoreFromSave();
+                RouteManager.EnsureScheduleHooked();
+                new GameObject("GRQDApp").AddComponent<GRQDApp>();
+                LoggerInstance.Msg("GRQD: app registered on home screen.");
             }
 
+            // Temporary: spawns one test van near the local player the first frame the game
+            // is ready. Proves spawn + color end-to-end. Safe to leave alongside the real app.
             if (!_testVanSpawned && Api.IsGameReady)
             {
                 _testVanSpawned = true;
