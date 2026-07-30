@@ -1,5 +1,6 @@
 using Il2CppScheduleOne.UI.Phone.Delivery;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace LegionCore.Delivery
@@ -35,8 +36,11 @@ namespace LegionCore.Delivery
             app._shopElements.Add(new DeliveryApp.DeliveryShopElement { Shop = newShop, Button = newButton });
 
             newButton.gameObject.SetActive(newShop.AvailableByDefault);
-            newButton.onClick.AddListener(() => app.OpenShop(newShop));
-            newShop.OnSelect = (System.Action<DeliveryShop>)System.Delegate.Combine(newShop.OnSelect, new System.Action<DeliveryShop>(app.CloseShop));
+            // Il2Cpp interop represents UnityAction/Il2CppSystem.Action<T> as non-delegate
+            // wrapper classes - a lambda/method group needs an explicit cast to convert, and
+            // System.Delegate.Combine doesn't apply to them at all.
+            newButton.onClick.AddListener((UnityAction)(() => app.OpenShop(newShop)));
+            newShop.OnSelect = (Il2CppSystem.Action<DeliveryShop>)app.CloseShop;
             newShop.Initialize();
 
             shop = newShop;
