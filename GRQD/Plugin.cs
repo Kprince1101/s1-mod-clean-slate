@@ -1,8 +1,5 @@
-using Il2CppScheduleOne.PlayerScripts;
-using Il2CppScheduleOne.Vehicles.Modification;
 using LegionCore;
 using MelonLoader;
-using UnityEngine;
 
 [assembly: MelonInfo(typeof(GRQD.Plugin), "Global Real Quick Delivery", "0.0.1", "Legion", null)]
 [assembly: MelonGame("TVGS", "Schedule I")]
@@ -11,34 +8,27 @@ namespace GRQD
 {
     public class Plugin : MelonMod
     {
-        private const string ShopName = "Global Real Quick Delivery";
-        private static readonly Color ShopColor = new(0f, 0.5f, 0.5f); // teal
-        private static readonly EVehicleColor VanColor = EVehicleColor.Cyan;
-
-        private bool _testVanSpawned;
+        // Scoped down to an innocuous LegionCore proof-of-life check first: does the
+        // ProjectReference/Harmony cross-assembly wiring actually work in-game. Van spawn +
+        // shop tile registration come back once this round is confirmed clean - see
+        // git history for the removed OnUpdate block.
+        private bool _sent;
 
         public override void OnInitializeMelon()
         {
             Api.Initialize();
-            Api.Delivery.RegisterShopTile(ShopName, ShopColor, ShopName);
-            LoggerInstance.Msg("GRQD loaded.");
+            LoggerInstance.Msg("GRQD loaded, waiting for NotificationsManager...");
         }
 
         public override void OnUpdate()
         {
             Api.CheckVersion();
 
-            // Temporary: spawns one test van near the local player the first frame it's
-            // possible. Proves spawn + color end-to-end before real route scheduling exists.
-            // Remove once routes drive real spawns (build order step 5).
-            if (_testVanSpawned || !Api.Vehicles.IsReady || Player.Local == null) return;
-            _testVanSpawned = true;
+            if (_sent || !Api.Notifications.IsReady) return;
 
-            var spawnPos = Player.Local.PlayerBasePosition + new Vector3(5f, 0f, 5f);
-            var van = Api.Vehicles.SpawnVan(spawnPos, Quaternion.identity, VanColor);
-            LoggerInstance.Msg(van != null
-                ? $"GRQD test van spawned near player at {spawnPos}."
-                : "GRQD test van spawn failed.");
+            Api.Notifications.Send("GRQD", "Plugin loaded and LegionCore is working.");
+            LoggerInstance.Msg("GRQD: sent proof-of-life notification via LegionCore.");
+            _sent = true;
         }
     }
 }
