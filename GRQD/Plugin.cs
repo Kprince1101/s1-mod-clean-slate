@@ -27,10 +27,18 @@ namespace GRQD
         private bool _sent;
         private bool _testVanSpawned;
         private bool _appSpawned;
+        private Sprite? _icon;
 
         public override void OnInitializeMelon()
         {
             Api.Initialize();
+
+            // Real logo art (pill-in-badge, teal/cream/crimson) baked into the DLL via
+            // GRQD.csproj's EmbeddedResource - falls back to the procedural placeholder if
+            // the resource is ever missing/renamed rather than crashing. Loaded once and
+            // reused for both the shop tile and the home-screen icon below.
+            _icon = UiFactory.LoadEmbeddedSprite(typeof(Plugin).Assembly, "GRQD.icon.png")
+                ?? UiFactory.CreateAppIconSprite(ShopColor);
 
             // Plain MonoBehaviour injection - safe (see PickupDock). Deriving GRQD's UI from
             // the generic App<T> and injecting *that* is NOT safe - confirmed via an in-game
@@ -47,7 +55,7 @@ namespace GRQD
             // icon now actually apply to the cloned tile (see DeliveryShopTileFactory) - a
             // real in-game hierarchy dump confirmed exactly which child Text/Image to hit.
             Api.Delivery.RegisterShopTile(ShopName, ShopColor, string.Empty,
-                "Same-Day Product Delivery", UiFactory.CreateAppIconSprite(ShopColor));
+                "Same-Day Product Delivery", _icon);
 
             LoggerInstance.Msg("GRQD loaded, waiting for NotificationsManager...");
         }
@@ -66,8 +74,7 @@ namespace GRQD
                 RouteManager.EnsureScheduleHooked();
 
                 var panel = new GameObject("GRQDPanel").AddComponent<GRQDPanel>();
-                var icon = UiFactory.InstallHomeScreenIcon("GRQD", panel.Toggle,
-                    UiFactory.CreateAppIconSprite(ShopColor), "GRQD_HomeIcon");
+                var icon = UiFactory.InstallHomeScreenIcon("GRQD", panel.Toggle, _icon, "GRQD_HomeIcon");
                 LoggerInstance.Msg(icon != null
                     ? "GRQD: home-screen icon installed."
                     : "GRQD: failed to install home-screen icon (appIconContainer not found via reflection).");

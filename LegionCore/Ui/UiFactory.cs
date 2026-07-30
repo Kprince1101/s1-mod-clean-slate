@@ -158,6 +158,23 @@ namespace LegionCore.Ui
             return property?.GetValue(instance) as T;
         }
 
+        // Loads a PNG baked into an assembly as an EmbeddedResource (see GRQD.csproj's
+        // <EmbeddedResource>/<LogicalName>) into a Sprite. Returns null if the resource name
+        // doesn't exist or fails to decode - callers should fall back to CreateAppIconSprite
+        // or CreateSolidSprite in that case rather than crash on a missing/renamed asset.
+        public static Sprite? LoadEmbeddedSprite(System.Reflection.Assembly assembly, string resourceName)
+        {
+            using var stream = assembly.GetManifestResourceStream(resourceName);
+            if (stream == null) return null;
+
+            using var memory = new System.IO.MemoryStream();
+            stream.CopyTo(memory);
+
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!tex.LoadImage(memory.ToArray())) return null;
+            return Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+
         // A flat-color square sprite - used for a mod's app icon when no real art exists yet.
         public static Sprite CreateSolidSprite(Color color, int size = 64)
         {

@@ -29,6 +29,15 @@
 		<Reference Include="Il2CppFishNet.Runtime"><HintPath>$(ManagedDllPath)\Il2CppFishNet.Runtime.dll</HintPath><Private>false</Private></Reference>
 	</ItemGroup>
 
+	<!-- Real logo art, baked into the DLL so there's no separate file to deploy/lose track of.
+	     LogicalName pins the exact manifest resource name (UiFactory.LoadEmbeddedSprite reads
+	     it) instead of relying on RootNamespace+path mangling of the hyphenated filename. -->
+	<ItemGroup>
+		<EmbeddedResource Include="Assets\grqd-icon-64.png">
+			<LogicalName>GRQD.icon.png</LogicalName>
+		</EmbeddedResource>
+	</ItemGroup>
+
 	<!-- Copy the built DLL and its LegionCore dependency straight to the dev profile's Mods folder after each build. -->
 	<Target Name="CopyToProfile" AfterTargets="Build" Condition="'$(ModOutputPath)' != ''">
 		<MakeDir Directories="$(ModOutputPath)" />
