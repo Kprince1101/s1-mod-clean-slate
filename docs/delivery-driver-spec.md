@@ -60,13 +60,16 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 ## Core Mechanics (v1.0 — the public release)
 
 ### Routes
-- Player defines up to 5 routes. Definition pattern intentionally mirrors the vanilla
-  Handler system's existing route setup, so GRQD's UX feels native instead of reinventing
-  one — **not yet spiked**: a static keyword search of `Assembly-CSharp.dll` for `Handler`
-  found no logistics/dead-drop system by that name (only UI/dialogue/effect handlers). The
-  vanilla system this refers to exists under some other class name — needs an in-game or
-  broader static look before Route UX gets built, don't guess the data model from the name
-  alone.
+- Player defines up to 5 routes. UX should mirror the vanilla assignment pattern, likely
+  found: `Il2CppScheduleOne.Tools.ManagementClipboard` — an equippable tool. Player equips
+  it, points at/selects a world object implementing `Il2CppScheduleOne.Management.
+  IConfigurable`, and a config UI opens for the selection. `Property` already exposes
+  `Configurables`/`AddConfigurable` (found in the M1 spike), so this is very likely the same
+  system used for employee/route-style assignment generally, not something named `Handler`
+  in code. Static search couldn't confirm exactly which classes implement `IConfigurable`
+  (interop metadata doesn't expose that cleanly via Cecil) — real confirmation needs an
+  in-game look, but the pattern (equip tool, point-select, config UI) is confirmed real and
+  is what to mirror.
 - Each route is defined independently, in two separate steps:
   1. **Schedule** — daily, weekly, etc. Cost scales with cadence (exact cost table TBD).
   2. **Start and finish**, set separately:
@@ -77,9 +80,9 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
   daily route fires every day regardless of what a weekly route is doing.
 
 ### Pickup docks — source-side only, not a general dock
-- Our own dock `MonoBehaviour`, spawned at a fixed street-side position per property type
-  (v1 hardcoded defaults): Manor outside the gate, Bungalow/storage unit street-side. Player
-  doesn't place it in v1.
+- Our own dock `MonoBehaviour`, spawned at a fixed position per property type. Exact
+  positioning doesn't need to be pretty or realistic — an arbitrary workable point per
+  property type is fine for v1, not worth blocking on. Player doesn't place it in v1.
 - **This dock is pickup-only.** It exists solely as a staging point at a route's *start*: the
   van loads from it after product is debited from the source locker/shelf into it. It is not
   a delivery destination and has no function beyond that one job.
@@ -101,21 +104,18 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 - Moves owned product only — does not create product
 
 ### Payment
-- No separately-designated pay locker. Pay lives at the route's **first stop** (the pickup) —
-  Fry collects his wage from a locker there as part of that stop, cost scaled to the route's
-  schedule (see Routes above).
-- **Open question, not yet resolved:** does "first stop" mean *each route's own* pickup has
-  its own pay locker, or is it *one* locker at whichever route happens to run first on a
-  given day (when multiple routes' schedules overlap)? Materially different data model
-  (per-route pay locker vs. one global pay locker) — needs a decision before build, not a
-  guess.
+- Pay locker location doesn't matter — resolved. Not tied to a route's first stop after all.
+  Assigned through the app the same way vanilla assigns things: point-select via
+  `ManagementClipboard` (see Routes above), targeting any `IConfigurable` locker the player
+  owns. One clean mechanism instead of two (route assignment and pay-locker assignment both
+  go through the same clipboard-style flow).
+- Cost still scales with a route's schedule cadence (see Routes above).
 - Empty pay locker behavior: TBD (warn player, driver stops — decide in build)
 
 ### Delivery loop (one route's run)
 1. That route's configured schedule fires (independent per route)
 2. Check source locker/shelf has product, debit via `StorageTransfer` to the pickup dock
-3. Spawn GRQD van at the pickup dock; collect wage from the locker there (see open question
-   above on scope)
+3. Spawn GRQD van at the pickup dock; debit wage from the player-assigned pay locker
 4. Van navigates to the destination `LoadingDock`/storefront via `VehicleAgent.Navigate`
 5. Check destination not full (`IsLoadingBayFree` for vanilla dock destinations; storefront
    check TBD)
@@ -160,15 +160,17 @@ Three files, each independently testable before integration:
 ## Open Questions (decide in build, not before)
 
 1. Can a van get robbed mid-route, or is it inherently safe?
-2. Pay-locker scope — per-route pay locker, or one shared locker at whichever route runs
-   first that day? (See Payment section above — not yet decided.)
-3. Empty pay locker behavior — warn and stop, or warn and continue?
-4. Load capacity per trip — unlimited v1, or limit from the start?
-5. What the vanilla "Handler" route system this is meant to mirror actually is — a keyword
-   scan for `Handler` in `Assembly-CSharp.dll` found no logistics/dead-drop match, only
-   UI/dialogue/effect classes. Needs a real look (in-game or a broader static search) before
-   Route UX gets designed.
-6. Exact fixed dock world positions per property type (needs in-game measurement on Vortex)
+2. Empty pay locker behavior — warn and stop, or warn and continue?
+3. Load capacity per trip — unlimited v1, or limit from the start?
+4. Confirm in-game which classes actually implement `IConfigurable` and that
+   `ManagementClipboard` is really the mechanism vanilla uses for route/employee-style
+   assignment — static inspection got close (found the tool + interface, `Property` exposing
+   `Configurables`) but couldn't confirm the full implementor list from the interop metadata
+   alone.
+
+Not blocking, explicitly resolved as non-issues: exact dock world positions per property
+(arbitrary is fine), pay-locker location (app-assigned via clipboard-style selection, not
+tied to route stops).
 
 ---
 

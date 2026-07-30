@@ -50,10 +50,11 @@ Decision" in `docs/delivery-driver-spec.md`.
 3. `Middleware/DeliveryVehicles.cs` — spawn + navigate wrapper.
 4. Integration — dock → transfer → van pickup → transfer as one tested loop, in-game on
    Vortex.
-5. Route UX — GRQD phone app page (teal branding, up to 5 routes, pay locker, status).
-   Blocked on identifying the actual vanilla "Handler" route-definition system this is meant
-   to mirror — a `Handler`-keyword scan of `Assembly-CSharp.dll` came up empty for a
-   logistics match. Needs a real look before this step starts.
+5. Route UX — GRQD phone app page (teal branding, up to 5 routes, pay-locker assignment,
+   status). Likely mechanism found: `ManagementClipboard` + `IConfigurable` (equip tool,
+   point-select a world object, config UI opens) — the same pattern for both route
+   assignment and pay-locker assignment. Not fully confirmed (interop metadata didn't expose
+   the full `IConfigurable` implementor list) — verify in-game before building.
 6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable.
 
 Not yet broken into tickets.
