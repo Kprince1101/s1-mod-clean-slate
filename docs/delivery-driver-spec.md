@@ -45,7 +45,7 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 
 **Paint persistence — confirmed free.** `LandVehicle.OwnedColor`/`ApplyColor(EVehicleColor)` and `Persistence.Datas.VehicleData.Color` (a `string`) ride on vanilla's own vehicle save/load pipeline. A van spawned via `VehicleManager` and registered normally needs no custom persistence code — if the player repaints it (vanilla spray/customization), the choice survives save/load the same as any vanilla-owned vehicle.
 
-**Open:** exact `vehicleCode` string for the van model isn't derivable from `Assembly-CSharp.dll` alone (vehicle codes live in a Unity asset registry, not compiled IL) — needs confirming in-game before `DeliveryVehicles.SpawnVan` can be called with a real value.
+**Resolved.** Full vehicle registry confirmed in-game via `VehicleCodeProbe` (now removed, its job is done): `shitbox`, `shitbox_police`, `bruiser`, `hounddog`, `bruiser_police`, `dinkler`, `cheetah`, `veeper`, `hotbox`. Legion confirmed `veeper` is the van — that's `DeliveryVehicles.VanCode`. (Other body types stay an option later — SUV/truck/beater/novelty — but the van is the v1 pick.)
 
 ---
 
@@ -162,9 +162,9 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
 
 ## Middleware Layer
 
-**`Middleware/DeliveryVehicles.cs`** — built. `SpawnVan(vehicleCode, position, rotation, playerOwned)` wraps `VehicleManager.SpawnAndReturnVehicle`, applies the default teal-substitute color (`EVehicleColor.Cyan`) via `LandVehicle.ApplyColor`. `vehicleCode` is a caller-supplied placeholder until confirmed in-game (see Spike Results above) — not hardcoded. Navigate wrapper over `VehicleAgent.Navigate` not yet added (waiting on integration step). Future hook point for `NPC.SetTransform` + `EnterVehicle` when Fry-visible is added.
+**`Middleware/DeliveryVehicles.cs`** — built, spawn confirmed working in-game. `SpawnVan(position, rotation, playerOwned)` wraps `VehicleManager.SpawnAndReturnVehicle` with `VanCode = "veeper"` (confirmed real code, see Spike Results above), applies the default teal-substitute color (`EVehicleColor.Cyan`) via `LandVehicle.ApplyColor`. `Plugin.cs` currently spawns one test van at `Vector3.zero` on the first ready frame, purely to prove spawn+color end-to-end — real spawn points come with Route UX. Navigate wrapper over `VehicleAgent.Navigate` not yet added (waiting on integration step). Future hook point for `NPC.SetTransform` + `EnterVehicle` when Fry-visible is added.
 
-**`Middleware/DeliveryAppListing.cs`** — built, first draft, **not verified in-game**. Harmony prefix on `DeliveryApp.Start()` clones an existing `DeliveryShop` (we have no prefab of our own) and registers it into `deliveryShops` before vanilla builds the shop-list UI, so GRQD gets a tile the same way any other vendor does. Sets `ShopColor` to teal. Does **not** yet redirect `CanOrder`/`SubmitOrder` away from the cloned shop's vanilla buy/checkout flow — that's Route UX (build order step 5), a separate follow-up.
+**`Middleware/DeliveryAppListing.cs`** — built, first draft, **known broken in-game**. Harmony prefix on `DeliveryApp.Start()` clones an existing `DeliveryShop` (we have no prefab of our own) and registers it into `deliveryShops`. First test: registration itself succeeds (logged), but no GRQD tile appears in the Shops list — the assumption that `deliveryShops` directly drives the visible tile list doesn't hold. A postfix diagnostic was added to compare `deliveryShops`/`_shopElements`/`_shopPanels` counts after `Start()` completes, to find out whether `Start()` reassigns `deliveryShops` and wipes the injected entry. Also does **not** yet redirect `CanOrder`/`SubmitOrder` away from the cloned shop's vanilla buy/checkout flow — that's Route UX (build order step 5), a separate follow-up.
 
 **`Middleware/Docks.cs`** — not yet built. Custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Pickup-side staging only, for product pending van pickup — not used as a delivery destination (destinations are vanilla `LoadingDock`s or the storefront).
 
@@ -182,15 +182,15 @@ Confirmed via Mono.Cecil static inspection of `Assembly-CSharp.dll`. Not yet tes
    assignment — static inspection got close (found the tool + interface, `Property` exposing
    `Configurables`) but couldn't confirm the full implementor list from the interop metadata
    alone.
-5. Real `vehicleCode` string for the GRQD van model — needs an in-game look (vehicle codes
-   aren't in `Assembly-CSharp.dll`'s IL).
-6. Whether cloning an existing `DeliveryShop` for the app listing is the right long-term
+5. Whether cloning an existing `DeliveryShop` for the app listing is the right long-term
    approach, or whether it should be a from-scratch prefab once we know we need to fully
-   override `CanOrder`/`SubmitOrder` anyway.
+   override `CanOrder`/`SubmitOrder` anyway — leaning toward "no" now that the clone-based
+   approach isn't producing a visible tile; may need a different mechanism entirely once the
+   diagnostic data comes back.
 
 Not blocking, explicitly resolved as non-issues: exact dock world positions per property
 (arbitrary is fine), pay-locker location (app-assigned via clipboard-style selection, not
-tied to route stops).
+tied to route stops), GRQD van model (`veeper`, confirmed by Legion).
 
 ---
 
