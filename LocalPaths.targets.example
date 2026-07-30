@@ -1,6 +1,8 @@
 <!--
-  Copy this file to LocalPaths.targets (same folder) and fill in your actual paths.
-  LocalPaths.targets is gitignored -- it's per-machine, never committed.
+  Copy this file to LocalPaths.targets at the repo root and fill in your actual paths.
+  LocalPaths.targets is gitignored -- it's per-machine, never committed. Shared by every
+  mod project in this repo (CleanSlate, DeliveryDriver, ...) since they all build against
+  the same game install.
 -->
 <Project>
 	<PropertyGroup>
