@@ -163,12 +163,13 @@ GRQD has no `Middleware/` folder of its own — all game access goes through the
 `LegionCore` project (see `docs/shared-middleware-architecture.md`).
 
 **`LegionCore.Vehicles` (`VehicleApi`/`VehicleFactory`)** — spawn confirmed working in-game
-(log showed the spawn call succeeding). First test used `Vector3.zero` as the drop point,
-which put it somewhere Legion couldn't find in-game (likely underground/void) — switched to
-spawning at `Player.Local.PlayerBasePosition + (5, 0, 5)`. Color now goes through
-`SendOwnedColor` (the real replicated/persisted path) instead of the cosmetic-only
-`ApplyColor` the first draft used. Navigate wrapper over `VehicleAgent.Navigate` not yet
-added (waiting on integration step).
+(log showed the spawn call succeeding). Test-van spawn point moved off the earlier blind
+`PlayerBasePosition + (5, 0, 5)` offset (which once landed the van on a motel roof) to 4m in
+front of wherever the player is currently facing, ground-snapped via a short local raycast.
+Color goes through `SendOwnedColor` (the real replicated/persisted path) instead of the
+cosmetic-only `ApplyColor` the first draft used. `VehicleApi.Navigate(van, destination,
+onComplete)` now wraps `VehicleAgent.Navigate` - drives the real road AI, fires the callback
+with true/false on arrival/failure. **Not yet re-verified in-game.**
 
 **`LegionCore.Delivery` (`DeliveryApi`/`DeliveryShopTileFactory`)** — rewritten from the
 original first draft, which was **confirmed broken**: it injected into `deliveryShops` only,
@@ -182,9 +183,11 @@ loop already ran, not before via `Awake()` as the first draft tried). A Harmony 
 `MatchingShopInterfaceName` yet, so `WillCartFitInVehicle()` would otherwise NPE) until Route
 UX (build order step 5) wires up real order logic. **Not yet re-verified in-game.**
 
-**Docks** — not yet built. Custom dock component via `ClassInjector.RegisterTypeInIl2Cpp`. Fixed world positions per property type. Pickup-side staging only, for product pending van pickup — not used as a delivery destination (destinations are vanilla `LoadingDock`s or the storefront).
+**Docks** — built (`PickupDock`/`DockRegistry`). Custom `MonoBehaviour` via `ClassInjector.RegisterTypeInIl2Cpp`, fixed world position per property (`property.transform.position + (3, 0, 3)`), enabled/disabled per property and persisted via `LegionCore.Api.Save`. Pickup-side staging only — position marker for van spawn, not an actual physical inventory (see Storage transfer note below).
 
-**Storage transfer** — not yet built. Locker-to-locker item move helper wrapping `ItemSlot` / `TryInsertItemIntoSet`. Generic: takes source `List<ItemSlot>` and dest `List<ItemSlot>`, moves N units of a given item type. Server-side. Reused by Clean Slate (dock to shelf).
+**Storage transfer** — built (`StorageTransfer.MoveAll`). Wraps `ItemSlot.TryInsertItemIntoSet` / `StorageEntity.HowManyCanFit` / `ItemInstance.GetCopy`. Takes source/dest `StorageEntity`, moves up to N units, whole-or-partial stacks. Server-side (StorageEntity is a `NetworkBehaviour`; single player is always host so this is safe as-is). **Not yet re-verified in-game.** Not yet reused by Clean Slate.
+
+**Route execution** — built (`RouteManager.OnRouteDue`). On a route's scheduled day: resolves source/destination properties, checks the destination dock isn't full (`DeliveryManager.IsLoadingBayFree`), spawns the van at the source's pickup dock (or a fallback offset if that property's dock isn't enabled), transfers product from every `StorageEntity` at the source into the van's own `Storage` (up to a flat `VanCapacityUnits = 200` cap — real per-trip capacity is still an open question), drives to the destination dock via `VehicleApi.Navigate`, transfers into the destination's storage on arrival, despawns the van. Skips the run (van never spawns) if the source has nothing to move. Doesn't yet debit a pay locker — cost table is still TBD per Open Questions #2, so it currently runs free. **Code complete, not yet run in-game — this is the first real test of `VehicleAgent.Navigate`, `DeliveryManager.IsLoadingBayFree`, and `ItemInstance.GetCopy` in this project, all higher interop risk than the previously-verified APIs.**
 
 ---
 
@@ -210,11 +213,20 @@ tied to route stops), GRQD van model (`veeper`, confirmed by Legion).
 
 ## Build Order
 
-0. Van spawn/color and the GRQD Delivery-app tile — moved into `LegionCore` with both known
-   bugs fixed (color persistence, tile visibility). Not yet re-verified in-game post-move.
-1. Custom dock at a fixed test position.
-2. Locker-to-locker storage transfer helper.
-3. Navigate wrapper over `VehicleAgent.Navigate`, added to `LegionCore`'s vehicle domain.
-4. Integration — wire dock, transfer, and vehicle spawn/navigate into one end-to-end delivery loop, test in-game on Vortex against 0.4.6f9
-5. Route UX — GRQD phone app page (up to 5 routes, pay locker designation, route status), plus redirecting the cloned `DeliveryShop`'s `CanOrder`/`SubmitOrder` away from vanilla vendor checkout into GRQD's own route logic
-6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable
+0. **Done, verified in-game.** Van spawn/color and the GRQD Delivery-app tile — moved into
+   `LegionCore` with both known bugs fixed (color persistence, tile visibility).
+1. **Done, verified in-game.** Custom dock at a fixed test position (`PickupDock`/
+   `DockRegistry`, toggled per property from the GRQD panel's Setup tab).
+2. **Done, not yet verified in-game.** Locker-to-locker storage transfer helper
+   (`StorageTransfer.MoveAll`).
+3. **Done, not yet verified in-game.** Navigate wrapper over `VehicleAgent.Navigate`
+   (`VehicleApi.Navigate`).
+4. **Done, not yet verified in-game.** Integration — dock, transfer, and vehicle spawn/
+   navigate wired into one end-to-end delivery loop (`RouteManager.OnRouteDue`). Next build's
+   in-game test is the real milestone here, not this code landing.
+5. **Done, not yet verified in-game.** Route UX — GRQD panel's Routes tab (up to 5 routes,
+   pay-locker designation via the locker cycle button, add/remove routes) already wired to
+   `RouteManager`/`LockerRegistry`. `DeliveryShop.CanOrder`/`SubmitOrder` redirect away from
+   vanilla checkout is still open (GRQD's shop tile bypasses that screen entirely instead - see
+   the shop-tile-vs-app-icon decision above - so this is lower priority than originally scoped).
+6. Ship — Thunderstore, IP-safe logo pass, photosensitivity note if applicable.

@@ -1,7 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
+using Il2CppScheduleOne.Delivery;
 using Il2CppScheduleOne.DevUtilities;
 using Il2CppScheduleOne.GameTime;
+using Il2CppScheduleOne.Property;
+using Il2CppScheduleOne.Storage;
+using Il2CppScheduleOne.Vehicles;
+using Il2CppScheduleOne.Vehicles.Modification;
 using MelonLoader;
 using UnityEngine;
 
@@ -12,12 +17,19 @@ namespace LegionCore.Delivery
     // hand-rolled delimited string via LegionCore.Api.Save (MelonPreferences-backed) - see
     // the GetRoutes/SaveRoutes comment for why not UnityEngine.JsonUtility.
     //
-    // Scope note: this pass covers configuration + the daily fire trigger only. The actual
-    // pickup -> drive -> drop-off -> item-transfer choreography (storage transfer helper,
-    // VehicleAgent.Navigate wiring) is still open per grqd-spec.md's Build Order items 2-4 -
-    // OnRouteDue below is the hook point for that follow-up work, not the full implementation.
+    // Build Order items 2-4 (grqd-spec.md): storage transfer helper (StorageTransfer.cs),
+    // Navigate wrapper (VehicleApi.Navigate), and the end-to-end integration below are now
+    // wired up. Not yet in scope, per the spec's own "decide in build" list: pay-locker debit
+    // (cost table still TBD), per-trip load capacity beyond the flat VanCapacityUnits below,
+    // and any in-van handler NPC. None of this has been run in-game yet - first real test is
+    // the next build.
     public static class RouteManager
     {
+        // "Unlimited v1, or limit from the start?" (grqd-spec.md Open Questions #3) - picked
+        // a real number instead of true-unlimited so one route can't drain an entire warehouse
+        // into a single van. Not exposed/tuned yet - easy to revisit once that question is
+        // actually decided.
+        private const int VanCapacityUnits = 200;
         private const string PrefKey = "GRQD_Routes";
         public const int MaxRoutes = 5;
 
@@ -129,28 +141,127 @@ namespace LegionCore.Delivery
             if (changed) SaveRoutes(routes);
         }
 
-        // TODO(build order #2-4): pull product from the assigned locker into the source
-        // dock, spawn/navigate the van dock -> destination loading dock, transfer into the
-        // destination's storage. For now this just proves the schedule fires and confirms
-        // the van itself works end to end (reuses the same spawn path as the OnUpdate test
-        // van in GRQD/Plugin.cs).
+        // Full delivery loop per grqd-spec.md "Delivery loop (one route's run)": find
+        // source/destination, bail if the destination dock is full, spawn+load the van,
+        // drive it over via the real road AI, transfer cargo in on arrival, despawn. Runs
+        // fire-and-forget - Navigate's callback can land seconds to minutes after this method
+        // returns, well after CheckDueRoutes has moved on.
         private static void OnRouteDue(Route route)
         {
-            MelonLogger.Msg($"LegionCore: route {route.SourcePropertyCode} -> {route.DestinationPropertyCode} " +
-                $"(dock #{route.DestinationLoadingDockIndex}) is due today - pickup/drive/drop-off not yet implemented.");
+            var eligible = DockRegistry.GetEligibleProperties();
 
-            var source = DockRegistry.GetEligibleProperties().FirstOrDefault(p => p.PropertyCode == route.SourcePropertyCode);
+            var source = eligible.FirstOrDefault(p => p.PropertyCode == route.SourcePropertyCode);
             if (source == null)
             {
-                MelonLogger.Warning($"LegionCore: route source property '{route.SourcePropertyCode}' not found, skipping spawn.");
+                MelonLogger.Warning($"LegionCore: route source property '{route.SourcePropertyCode}' not found, skipping.");
                 return;
             }
 
-            var spawnPos = source.transform.position + new Vector3(3f, 0f, 3f);
-            var van = LegionCore.Api.Vehicles.SpawnVan(spawnPos, Quaternion.identity, Il2CppScheduleOne.Vehicles.Modification.EVehicleColor.Cyan);
-            MelonLogger.Msg(van != null
-                ? $"LegionCore: route van spawned at '{source.PropertyName}' ({spawnPos})."
-                : "LegionCore: route van spawn failed.");
+            var destination = eligible.FirstOrDefault(p => p.PropertyCode == route.DestinationPropertyCode);
+            if (destination == null)
+            {
+                MelonLogger.Warning($"LegionCore: route destination property '{route.DestinationPropertyCode}' not found, skipping.");
+                return;
+            }
+
+            if (route.DestinationLoadingDockIndex < 0 || route.DestinationLoadingDockIndex >= destination.LoadingDocks.Length)
+            {
+                MelonLogger.Warning($"LegionCore: route destination dock index {route.DestinationLoadingDockIndex} " +
+                    $"is out of range for '{destination.PropertyName}' ({destination.LoadingDocks.Length} dock(s)), skipping.");
+                return;
+            }
+
+            if (!NetworkSingleton<DeliveryManager>.InstanceExists ||
+                !NetworkSingleton<DeliveryManager>.Instance.IsLoadingBayFree(destination, route.DestinationLoadingDockIndex))
+            {
+                MelonLogger.Msg($"LegionCore: route {route.SourcePropertyCode} -> {route.DestinationPropertyCode} due today, " +
+                    $"but destination dock #{route.DestinationLoadingDockIndex} is full - skipping this run.");
+                return;
+            }
+
+            // Spawn at the property's own pickup dock if one is enabled there, otherwise fall
+            // back to the same fixed offset DockRegistry itself uses to place a dock - keeps
+            // van placement consistent whether or not the player actually toggled the dock on
+            // for this particular source property.
+            var spawnPos = DockRegistry.TryGetDock(route.SourcePropertyCode, out var dock) && dock != null
+                ? dock.transform.position
+                : source.transform.position + new Vector3(3f, 0f, 3f);
+
+            var van = LegionCore.Api.Vehicles.SpawnVan(spawnPos, Quaternion.identity, EVehicleColor.Cyan);
+            if (van == null)
+            {
+                MelonLogger.Warning("LegionCore: route van spawn failed, skipping this run.");
+                return;
+            }
+
+            // TODO(grqd-spec.md Open Questions #2): pay-locker debit isn't implemented yet -
+            // the cost table is still explicitly TBD in the spec, not worth faking a number.
+            // Routes currently run for free.
+
+            int loaded = LoadFromSource(source, van.Storage);
+            if (loaded <= 0)
+            {
+                MelonLogger.Msg($"LegionCore: route {route.SourcePropertyCode} -> {route.DestinationPropertyCode} due today, " +
+                    "but source had nothing to move - despawning van.");
+                UnityEngine.Object.Destroy(van.gameObject);
+                return;
+            }
+
+            MelonLogger.Msg($"LegionCore: route van loaded {loaded} unit(s) from '{source.PropertyName}', " +
+                $"departing for '{destination.PropertyName}' dock #{route.DestinationLoadingDockIndex}.");
+
+            var targetPos = destination.LoadingDocks[route.DestinationLoadingDockIndex].transform.position;
+
+            LegionCore.Api.Vehicles.Navigate(van, targetPos, success =>
+            {
+                if (van == null)
+                {
+                    MelonLogger.Warning("LegionCore: route van no longer exists by the time navigation finished - nothing to deliver.");
+                    return;
+                }
+
+                if (!success)
+                {
+                    MelonLogger.Warning($"LegionCore: route van failed to reach '{destination.PropertyName}' - " +
+                        "leaving it wherever it stopped for now rather than losing the cargo.");
+                    return;
+                }
+
+                int delivered = DeliverToDestination(van.Storage, destination);
+                MelonLogger.Msg($"LegionCore: route van delivered {delivered} unit(s) to '{destination.PropertyName}' - trip complete.");
+                UnityEngine.Object.Destroy(van.gameObject);
+            });
+        }
+
+        // Pulls from every StorageEntity at the source property (routes don't carry a
+        // specific locker selection yet - see RouteModels.cs) into the van's own storage, up
+        // to VanCapacityUnits total.
+        private static int LoadFromSource(Property source, StorageEntity vanStorage)
+        {
+            int moved = 0;
+            var storages = source.GetComponentsInChildren<StorageEntity>(true);
+            for (int i = 0; i < storages.Length && moved < VanCapacityUnits; i++)
+            {
+                moved += StorageTransfer.MoveAll(storages[i], vanStorage, VanCapacityUnits - moved);
+            }
+            return moved;
+        }
+
+        // Spreads the van's cargo across whatever StorageEntity(s) exist at the destination -
+        // vanilla's own LoadingDock.OutputSlots/InputSlots plumbing isn't used here (it's
+        // wired for a parked-vehicle-triggers-unload flow that isn't confirmed to drain on
+        // its own from mod code); this is a direct, self-contained transfer instead, matching
+        // the "own thin middleware layer" design principle in grqd-spec.md. The destination
+        // dock is still the real capacity gate via IsLoadingBayFree above.
+        private static int DeliverToDestination(StorageEntity vanStorage, Property destination)
+        {
+            int moved = 0;
+            var storages = destination.GetComponentsInChildren<StorageEntity>(true);
+            for (int i = 0; i < storages.Length; i++)
+            {
+                moved += StorageTransfer.MoveAll(vanStorage, storages[i]);
+            }
+            return moved;
         }
     }
 }

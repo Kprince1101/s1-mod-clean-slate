@@ -12,6 +12,15 @@ namespace LegionCore
         // LegionCore.Vehicles.VanLivery) - optional so callers who don't care about branding
         // (or haven't got a logo loaded yet) aren't forced to pass one.
         LandVehicle? SpawnVan(Vector3 position, Quaternion rotation, EVehicleColor color, bool playerOwned = false, Sprite? livery = null);
+
+        // Drives van to destination via the game's real road AI (VehicleAgent.Navigate) - the
+        // same system vanilla traffic/delivery vehicles use, obstacle sweeps and all (see the
+        // M1 spike in grqd-spec.md §3). onComplete, if given, fires exactly once: true on
+        // arrival, false on path failure or an explicit stop. Returns false immediately (no
+        // callback fired) if van has no VehicleAgent to drive with. VehicleAgent.Navigate
+        // itself no-ops for non-host callers - true for any single-player session, the only
+        // case GRQD supports today.
+        bool Navigate(LandVehicle van, Vector3 destination, System.Action<bool>? onComplete = null);
     }
 
     public interface IDeliveryApi

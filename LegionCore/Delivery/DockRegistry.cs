@@ -47,6 +47,11 @@ namespace LegionCore.Delivery
 
         public static bool IsEnabled(string propertyCode) => GetEnabledCodes().Contains(propertyCode);
 
+        // Exposes the live dock instance for a property, if its dock is currently enabled -
+        // lets a route spawn its van at the dock's actual position instead of recomputing the
+        // same fixed offset a second time (see RouteManager.OnRouteDue).
+        public static bool TryGetDock(string propertyCode, out PickupDock? dock) => Live.TryGetValue(propertyCode, out dock);
+
         public static void SetEnabled(string propertyCode, bool enabled)
         {
             var codes = GetEnabledCodes();
