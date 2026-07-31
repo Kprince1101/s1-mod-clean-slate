@@ -21,9 +21,11 @@ namespace GRQD.App
     //
     // This is a plain MonoBehaviour instead - the same safe, proven injection category as
     // LegionCore.Delivery.PickupDock. It doesn't integrate with App<T>/PlayerSingleton<T> at
-    // all; instead UiFactory.InstallHomeScreenIcon reflects into HomeScreen's own protected
-    // appIconContainer to add a real icon to the phone's home screen, wired to Toggle() below,
-    // without ever needing a new App<T> instantiation.
+    // all; its entry point is GRQD's own tile inside the vanilla Delivery app's shop list
+    // (see LegionCore.Delivery.DeliveryShopTileFactory's custom-onClick path and GRQD/
+    // Plugin.cs), wired to Toggle() below, without ever needing a new App<T> instantiation.
+    // (A standalone home-screen icon was tried first via UiFactory.InstallHomeScreenIcon -
+    // that method's still in LegionCore for reuse, just not used by GRQD anymore.)
     public class GRQDPanel : MonoBehaviour
     {
         public GRQDPanel(IntPtr ptr) : base(ptr) { }
@@ -34,9 +36,13 @@ namespace GRQD.App
         private static readonly Color BackgroundColor = new Color(0.96f, 0.96f, 0.94f, 1f);
         private static readonly Color TextColor = new Color(0.12f, 0.12f, 0.12f, 1f);
         private static readonly Color AccentColor = new Color(0f, 0.5f, 0.5f, 1f); // matches Plugin.ShopColor
+        private static readonly Color TabInactiveColor = new Color(0.85f, 0.85f, 0.83f, 1f);
 
         private GameObject? _root;
         private RectTransform? _content;
+        private Button? _setupTabButton;
+        private Button? _routesTabButton;
+        private int _activeTab;
         private int _pendingSourceIndex;
         private int _pendingDestIndex;
 
@@ -76,7 +82,7 @@ namespace GRQD.App
             root.offsetMin = Vector2.zero;
             root.offsetMax = Vector2.zero;
 
-            var title = UiFactory.CreateText(root, "Global Real Quick Delivery", 20, "Title", AccentColor);
+            var title = UiFactory.CreateText(root, "Global Real Quick Delivery", 24, "Title", AccentColor);
             title.fontStyle = FontStyle.Bold;
             var titleRect = (RectTransform)title.transform;
             titleRect.anchorMin = new Vector2(0f, 0.93f);
@@ -85,27 +91,60 @@ namespace GRQD.App
             titleRect.offsetMax = new Vector2(-10f, 0f);
 
             var closeButton = UiFactory.CreateButton(root, "Close", Toggle, "CloseButton",
-                backgroundColor: new Color(0.82f, 0.82f, 0.8f, 1f), textColor: TextColor);
+                backgroundColor: new Color(0.82f, 0.82f, 0.8f, 1f), textColor: TextColor, fontSize: 16);
             var closeRect = (RectTransform)closeButton.transform;
             closeRect.anchorMin = new Vector2(0.8f, 0.935f);
             closeRect.anchorMax = new Vector2(0.99f, 0.995f);
             closeRect.offsetMin = Vector2.zero;
             closeRect.offsetMax = Vector2.zero;
 
+            // Tab bar - was previously one long unbroken list of every section at once, which
+            // read as cramped/hard-to-read at the old smaller font sizes. Splitting into two
+            // tabs (mirrors the vanilla Delivery app's own Shops/Active Orders/Past Orders tab
+            // bar) leaves room for everything below to be sized up instead.
+            var tabBar = UiFactory.CreatePanel(root, Color.clear, "TabBar");
+            tabBar.anchorMin = new Vector2(0f, 0.82f);
+            tabBar.anchorMax = new Vector2(1f, 0.92f);
+            tabBar.offsetMin = new Vector2(10f, 2f);
+            tabBar.offsetMax = new Vector2(-10f, -2f);
+
+            _setupTabButton = UiFactory.CreateButton(tabBar, "Setup", () => SwitchTab(0), "SetupTabButton", fontSize: 16);
+            var setupRect = (RectTransform)_setupTabButton.transform;
+            setupRect.anchorMin = new Vector2(0f, 0f);
+            setupRect.anchorMax = new Vector2(0.49f, 1f);
+            setupRect.offsetMin = Vector2.zero;
+            setupRect.offsetMax = Vector2.zero;
+
+            _routesTabButton = UiFactory.CreateButton(tabBar, "Routes", () => SwitchTab(1), "RoutesTabButton", fontSize: 16);
+            var routesRect = (RectTransform)_routesTabButton.transform;
+            routesRect.anchorMin = new Vector2(0.51f, 0f);
+            routesRect.anchorMax = new Vector2(1f, 1f);
+            routesRect.offsetMin = Vector2.zero;
+            routesRect.offsetMax = Vector2.zero;
+
+            ApplyTabStyle(_setupTabButton, active: true);
+            ApplyTabStyle(_routesTabButton, active: false);
+
             _content = UiFactory.CreatePanel(root, new Color(0f, 0f, 0f, 0f), "Content");
             _content.anchorMin = new Vector2(0f, 0f);
-            _content.anchorMax = new Vector2(1f, 0.92f);
-            _content.offsetMin = new Vector2(10f, 10f);
-            _content.offsetMax = new Vector2(-10f, -6f);
+            _content.anchorMax = new Vector2(1f, 0.80f);
+            _content.offsetMin = new Vector2(12f, 10f);
+            _content.offsetMax = new Vector2(-12f, -6f);
         }
 
-        // Wired directly to the home-screen icon's onClick (see UiFactory.InstallHomeScreenIcon
-        // in GRQD/Plugin.cs).
+        // Wired directly to the GRQD shop tile's onClick (see GRQD/Plugin.cs and
+        // LegionCore.Delivery.DeliveryShopTileFactory's custom-onClick tile path) - clicking
+        // the tile inside the vanilla Delivery app opens this instead of a real DeliveryShop
+        // listing screen.
         public void Toggle()
         {
             if (_root == null) return;
             bool willOpen = !_root.activeSelf;
             _root.SetActive(willOpen);
+            // Opened from inside the Delivery app's shop list, which lives under the same
+            // AppsCanvas - force ourselves to the top of the sibling order so our (opaque)
+            // panel actually covers it rather than risking being drawn underneath.
+            if (willOpen) _root.transform.SetAsLastSibling();
 
             // Mirrors the parts of the real App<T>.SetOpen() (see reference/decompiled/
             // ScheduleOne.UI/App.cs) that GRQDPanel doesn't get automatically since it isn't
@@ -140,6 +179,23 @@ namespace GRQD.App
             }
         }
 
+        private void SwitchTab(int tab)
+        {
+            _activeTab = tab;
+            ApplyTabStyle(_setupTabButton, active: tab == 0);
+            ApplyTabStyle(_routesTabButton, active: tab == 1);
+            RefreshContent();
+        }
+
+        private static void ApplyTabStyle(Button? button, bool active)
+        {
+            if (button == null) return;
+            var image = button.GetComponent<Image>();
+            if (image != null) image.color = active ? AccentColor : TabInactiveColor;
+            var label = button.GetComponentInChildren<Text>();
+            if (label != null) label.color = active ? Color.white : TextColor;
+        }
+
         private void RefreshContent()
         {
             if (_content == null) return;
@@ -150,30 +206,35 @@ namespace GRQD.App
                 UnityEngine.Object.Destroy(_content.GetChild(i).gameObject);
 
             float y = 0f;
-            // Shrunk from the original full-screen-overlay sizing now that this is confined
-            // to the actual phone screen area (much smaller than the whole viewport).
-            const float rowHeight = 30f;
-            const float gap = 4f;
+            // Sized up from the original crammed-in-one-screen layout now that each tab only
+            // has to fit part of the content.
+            const float rowHeight = 44f;
+            const float gap = 8f;
 
-            y = AddSectionHeader(_content, "Driver Locker", y, rowHeight);
-            y = AddLockerRow(_content, y, rowHeight, gap);
+            if (_activeTab == 0)
+            {
+                y = AddSectionHeader(_content, "Driver Locker", y, rowHeight);
+                y = AddLockerRow(_content, y, rowHeight, gap);
 
-            y = AddSectionHeader(_content, "Pickup Docks", y, rowHeight + gap);
-            var properties = DockRegistry.GetEligibleProperties();
-            for (int i = 0; i < properties.Count; i++)
-                y = AddDockRow(_content, properties[i], y, rowHeight, gap);
+                y = AddSectionHeader(_content, "Pickup Docks", y, rowHeight + gap);
+                var properties = DockRegistry.GetEligibleProperties();
+                for (int i = 0; i < properties.Count; i++)
+                    y = AddDockRow(_content, properties[i], y, rowHeight, gap);
+            }
+            else
+            {
+                y = AddSectionHeader(_content, "Routes (Daily) - " + RouteManager.GetRoutes().Count + "/" + RouteManager.MaxRoutes, y, rowHeight);
+                var routes = RouteManager.GetRoutes();
+                for (int i = 0; i < routes.Count; i++)
+                    y = AddRouteRow(_content, routes[i], i, y, rowHeight, gap);
 
-            y = AddSectionHeader(_content, "Routes (Daily) - " + RouteManager.GetRoutes().Count + "/" + RouteManager.MaxRoutes, y, rowHeight + gap);
-            var routes = RouteManager.GetRoutes();
-            for (int i = 0; i < routes.Count; i++)
-                y = AddRouteRow(_content, routes[i], i, y, rowHeight, gap);
-
-            y = AddAddRouteRow(_content, y, rowHeight, gap);
+                y = AddAddRouteRow(_content, y, rowHeight, gap);
+            }
         }
 
         private static float AddSectionHeader(Transform parent, string label, float y, float rowHeight)
         {
-            var text = UiFactory.CreateText(parent, label, 16, "Header", TextColor);
+            var text = UiFactory.CreateText(parent, label, 20, "Header", TextColor);
             var rect = (RectTransform)text.transform;
             PositionRow(rect, y, rowHeight);
             text.fontStyle = FontStyle.Bold;
@@ -188,7 +249,7 @@ namespace GRQD.App
                 ? $"Locker: {assigned.StorageEntityName} ({assigned.name})"
                 : "Locker: (none assigned)";
 
-            var text = UiFactory.CreateText(parent, label, 14, "LockerLabel", TextColor);
+            var text = UiFactory.CreateText(parent, label, 18, "LockerLabel", TextColor);
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.65f);
 
             var button = UiFactory.CreateButton(parent, options.Count == 0 ? "No lockers found" : "Cycle", () =>
@@ -198,7 +259,7 @@ namespace GRQD.App
                 int currentIndex = options.FindIndex(o => o.Key == currentKey);
                 int nextIndex = (currentIndex + 1) % options.Count;
                 LockerRegistry.SetAssignedKey(options[nextIndex].Key);
-            }, "LockerCycleButton", backgroundColor: AccentColor, textColor: Color.white);
+            }, "LockerCycleButton", backgroundColor: AccentColor, textColor: Color.white, fontSize: 16);
             PositionRow((RectTransform)button.transform, y, rowHeight, xFraction: 0.68f, widthFraction: 0.32f);
 
             return y + rowHeight + gap;
@@ -207,13 +268,13 @@ namespace GRQD.App
         private static float AddDockRow(Transform parent, Property property, float y, float rowHeight, float gap)
         {
             bool enabled = DockRegistry.IsEnabled(property.PropertyCode);
-            var text = UiFactory.CreateText(parent, property.PropertyName, 14, "DockLabel", TextColor);
+            var text = UiFactory.CreateText(parent, property.PropertyName, 18, "DockLabel", TextColor);
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.65f);
 
             var button = UiFactory.CreateButton(parent, enabled ? "Enabled" : "Disabled", () =>
             {
                 DockRegistry.SetEnabled(property.PropertyCode, !DockRegistry.IsEnabled(property.PropertyCode));
-            }, "DockToggleButton", backgroundColor: AccentColor, textColor: Color.white);
+            }, "DockToggleButton", backgroundColor: AccentColor, textColor: Color.white, fontSize: 16);
             PositionRow((RectTransform)button.transform, y, rowHeight, xFraction: 0.68f, widthFraction: 0.32f);
 
             return y + rowHeight + gap;
@@ -222,11 +283,11 @@ namespace GRQD.App
         private static float AddRouteRow(Transform parent, Route route, int index, float y, float rowHeight, float gap)
         {
             string label = $"{route.SourcePropertyCode} -> {route.DestinationPropertyCode} (dock #{route.DestinationLoadingDockIndex}, {route.Cadence})";
-            var text = UiFactory.CreateText(parent, label, 12, "RouteLabel", TextColor);
+            var text = UiFactory.CreateText(parent, label, 16, "RouteLabel", TextColor);
             PositionRow((RectTransform)text.transform, y, rowHeight, widthFraction: 0.75f);
 
             var button = UiFactory.CreateButton(parent, "Remove", () => RouteManager.RemoveRouteAt(index), "RouteRemoveButton",
-                backgroundColor: AccentColor, textColor: Color.white);
+                backgroundColor: AccentColor, textColor: Color.white, fontSize: 16);
             PositionRow((RectTransform)button.transform, y, rowHeight, xFraction: 0.78f, widthFraction: 0.22f);
 
             return y + rowHeight + gap;
@@ -237,7 +298,7 @@ namespace GRQD.App
             var properties = DockRegistry.GetEligibleProperties();
             if (properties.Count == 0)
             {
-                UiFactory.CreateText(parent, "No eligible properties yet - enable a pickup dock above first.", 12, "NoPropsLabel", TextColor);
+                UiFactory.CreateText(parent, "No eligible properties yet - enable a pickup dock above first.", 16, "NoPropsLabel", TextColor);
                 return y + rowHeight;
             }
 
@@ -248,14 +309,14 @@ namespace GRQD.App
             {
                 _pendingSourceIndex = (_pendingSourceIndex + 1) % properties.Count;
                 RefreshContent();
-            }, "PendingSourceButton", backgroundColor: AccentColor, textColor: Color.white);
+            }, "PendingSourceButton", backgroundColor: AccentColor, textColor: Color.white, fontSize: 16);
             PositionRow((RectTransform)sourceButton.transform, y, rowHeight, widthFraction: 0.48f);
 
             var destButton = UiFactory.CreateButton(parent, "Dest: " + properties[_pendingDestIndex].PropertyName, () =>
             {
                 _pendingDestIndex = (_pendingDestIndex + 1) % properties.Count;
                 RefreshContent();
-            }, "PendingDestButton", backgroundColor: AccentColor, textColor: Color.white);
+            }, "PendingDestButton", backgroundColor: AccentColor, textColor: Color.white, fontSize: 16);
             PositionRow((RectTransform)destButton.transform, y, rowHeight, xFraction: 0.5f, widthFraction: 0.48f);
 
             y += rowHeight + gap;
@@ -271,7 +332,7 @@ namespace GRQD.App
                 };
                 RouteManager.TryAddRoute(route, out _);
                 RefreshContent();
-            }, "AddRouteButton", backgroundColor: AccentColor, textColor: Color.white);
+            }, "AddRouteButton", backgroundColor: AccentColor, textColor: Color.white, fontSize: 16);
             PositionRow((RectTransform)addButton.transform, y, rowHeight, widthFraction: 1f);
 
             return y + rowHeight + gap;

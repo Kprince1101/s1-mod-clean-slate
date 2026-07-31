@@ -23,8 +23,12 @@ namespace LegionCore
         // with no matching ShopInterface is fine for now - the shop opens with no listings
         // and ordering is blocked, until a real order-flow ticket wires one up. description
         // and icon are optional (icon falls back to whatever the cloned template tile had).
+        // onClick, if given, replaces the vanilla "open a DeliveryShop listing screen"
+        // behavior entirely - the tile becomes a plain clickable button that runs onClick
+        // instead (no DeliveryShop is even created). Use this when a mod wants the tile as
+        // just an entry point into its own UI (see GRQD's Plugin.cs).
         void RegisterShopTile(string shopName, Color tileColor, string shopInterfaceName,
-            string description = "", Sprite? icon = null);
+            string description = "", Sprite? icon = null, System.Action? onClick = null);
     }
 
     public interface INpcApi

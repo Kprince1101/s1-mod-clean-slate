@@ -62,7 +62,7 @@ namespace LegionCore.Ui
         // delegate type, so a bare lambda can't implicitly convert to it at the call site. One
         // explicit cast here beats needing (UnityAction)(() => ...) at every call site.
         public static Button CreateButton(Transform parent, string label, System.Action onClick, string name = "Button",
-            Color? backgroundColor = null, Color? textColor = null)
+            Color? backgroundColor = null, Color? textColor = null, int fontSize = 14)
         {
             var go = new GameObject(name);
             go.AddComponent<RectTransform>();
@@ -72,7 +72,7 @@ namespace LegionCore.Ui
             var button = go.AddComponent<Button>();
             button.onClick.AddListener((UnityAction)onClick);
 
-            var label_ = CreateText(go.transform, label, 14, "Label", textColor);
+            var label_ = CreateText(go.transform, label, fontSize, "Label", textColor);
             label_.alignment = TextAnchor.MiddleCenter;
             var labelRect = (RectTransform)label_.transform;
             labelRect.anchorMin = Vector2.zero;
@@ -213,6 +213,42 @@ namespace LegionCore.Ui
             MelonLogger.Msg($"GRQD-UI: loaded embedded sprite '{resourceName}' - {bytes.Length} bytes -> {tex.width}x{tex.height} texture (format={tex.format}).");
             ProtectFromUnload(tex);
             var sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            ProtectFromUnload(sprite);
+            return sprite;
+        }
+
+        // Vanilla home-screen icons (Messages, Journal, Products, ...) read as solid colored
+        // rounded squares because that color is baked directly into each app's own icon art -
+        // there's no separate colored backdrop layer the Mask/Image hierarchy provides for
+        // free. GRQD's actual logo art is a badge with transparent corners (by design, so it
+        // reads as a circular badge on the *shop tile* row, which is already tinted teal - see
+        // DeliveryShopTileFactory), so on the home screen those transparent corners show
+        // through to whatever's behind the icon mask instead of a colored square (reported:
+        // "id rather the rounded edge teal background behind it"). This alpha-composites the
+        // source sprite over a solid color, baking in the backdrop the same way vanilla icons
+        // already have it - use this ONLY for the home-screen icon, not the shop tile (which
+        // looks right as-is) or the van livery (which wants to blend into whatever's behind it).
+        public static Sprite CompositeOverBackground(Sprite source, Color background, string name = "CompositeIcon")
+        {
+            var srcTex = source.texture;
+            int w = srcTex.width, h = srcTex.height;
+            var srcPixels = srcTex.GetPixels();
+            var outPixels = new Color[srcPixels.Length];
+            for (int i = 0; i < srcPixels.Length; i++)
+            {
+                var s = srcPixels[i];
+                // Standard "source over background" alpha compositing: out = bg*(1-a) + s*a.
+                // Color.Lerp(bg, s, a) computes exactly that.
+                var blended = Color.Lerp(background, s, s.a);
+                blended.a = 1f;
+                outPixels[i] = blended;
+            }
+
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            tex.SetPixels(outPixels);
+            tex.Apply();
+            ProtectFromUnload(tex);
+            var sprite = Sprite.Create(tex, new Rect(0f, 0f, w, h), new Vector2(0.5f, 0.5f));
             ProtectFromUnload(sprite);
             return sprite;
         }

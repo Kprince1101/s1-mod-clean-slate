@@ -16,18 +16,14 @@ namespace GRQD
 {
     public class Plugin : MelonMod
     {
-        // GRQD's own branding - see docs/grqd-spec.md "Aesthetic / Branding". The shop tile
-        // clones a vanilla template's model/prefab via LegionCore; only ShopColor is ours.
-        // Kept alongside GRQDPanel for now as a cheap secondary smoke test - not the primary
-        // UI going forward (see conversation history: GRQD gets its own dedicated phone icon
-        // instead of living inside the vanilla Delivery app).
-        private const string ShopName = "Global Real Quick Delivery";
+        // GRQD's own branding - see docs/grqd-spec.md "Aesthetic / Branding".
         private static readonly Color ShopColor = new Color(0f, 0.5f, 0.5f); // teal
 
         private bool _sent;
         private bool _testVanSpawned;
         private bool _appSpawned;
         private Sprite? _icon;
+        private GRQDPanel? _panel;
 
         public override void OnInitializeMelon()
         {
@@ -35,8 +31,7 @@ namespace GRQD
 
             // Real logo art (pill-in-badge, teal/cream/crimson) baked into the DLL via
             // GRQD.csproj's EmbeddedResource - falls back to the procedural placeholder if
-            // the resource is ever missing/renamed rather than crashing. Loaded once and
-            // reused for both the shop tile and the home-screen icon below.
+            // the resource is ever missing/renamed rather than crashing.
             _icon = UiFactory.LoadEmbeddedSprite(typeof(Plugin).Assembly, "GRQD.icon.png")
                 ?? UiFactory.CreateAppIconSprite(ShopColor);
 
@@ -44,18 +39,23 @@ namespace GRQD
             // the generic App<T> and injecting *that* is NOT safe - confirmed via an in-game
             // crash log that it NullRefs inside App`1's own Il2Cpp type initializer, since
             // App<GRQDPanel-that-would-have-been> is a closed generic instantiation the game
-            // never AOT-baked. See GRQD/App/GRQDPanel.cs for the full explanation and the
-            // replacement approach (UiFactory.InstallHomeScreenIcon).
+            // never AOT-baked. See GRQD/App/GRQDPanel.cs for the full explanation.
             ClassInjector.RegisterTypeInIl2Cpp<GRQDPanel>();
 
-            // Queued immediately - LegionCore installs it the next time DeliveryApp.Start()
-            // fires, whenever that is. shopInterfaceName left blank: LegionCore blocks
-            // ordering on any managed shop with no real ShopInterface, so this is safe until
-            // real order-flow work wires one up (see LegionCore/Interfaces.cs). Name/color/
-            // icon now actually apply to the cloned tile (see DeliveryShopTileFactory) - a
-            // real in-game hierarchy dump confirmed exactly which child Text/Image to hit.
-            Api.Delivery.RegisterShopTile(ShopName, ShopColor, string.Empty,
-                "Same-Day Product Delivery", _icon);
+            // Went back and forth on shop-tile-vs-dedicated-app-icon as GRQD's entry point;
+            // landed on tile only, per direct preference ("liked the shop tile more than the
+            // app idea"). Custom onClick below replaces the vanilla "open a DeliveryShop
+            // listing screen" behavior entirely (see DeliveryShopTileFactory) - clicking the
+            // tile just opens our own GRQDPanel instead. The transparent-cornered icon art
+            // reads fine here since the tile row itself is already tileColor (teal) - that's
+            // also why no separate composited-background icon is needed for this path (that
+            // was only a problem for a standalone home-screen icon, which no longer exists).
+            Api.Delivery.RegisterShopTile("Global Real Quick Delivery", ShopColor, string.Empty,
+                "Same-Day Product Delivery", _icon, onClick: () =>
+                {
+                    if (_panel != null) _panel.Toggle();
+                    else LoggerInstance.Warning("GRQD: shop tile clicked before GRQDPanel was ready.");
+                });
 
             LoggerInstance.Msg("GRQD loaded, waiting for NotificationsManager...");
         }
@@ -73,11 +73,7 @@ namespace GRQD
                 DockRegistry.RestoreFromSave();
                 RouteManager.EnsureScheduleHooked();
 
-                var panel = new GameObject("GRQDPanel").AddComponent<GRQDPanel>();
-                var icon = UiFactory.InstallHomeScreenIcon("GRQD", panel.Toggle, _icon, "GRQD_HomeIcon");
-                LoggerInstance.Msg(icon != null
-                    ? "GRQD: home-screen icon installed."
-                    : "GRQD: failed to install home-screen icon (appIconContainer not found via reflection).");
+                _panel = new GameObject("GRQDPanel").AddComponent<GRQDPanel>();
             }
 
             // Temporary: spawns one test van near the local player the first frame the game

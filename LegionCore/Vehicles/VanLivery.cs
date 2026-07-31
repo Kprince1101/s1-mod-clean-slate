@@ -51,9 +51,14 @@ namespace LegionCore.Vehicles
                 var decalSize = Mathf.Min(worldWidth, worldHeight) * 0.7f;
                 var worldCenter = surface.CenterPoint;
                 // BottomLeftPoint.forward is the surface's outward paint normal (SpraySurface.
-                // ToWorldPosition offsets along this same local +Z for paint depth) - aligning
-                // our quad's rotation to it puts the decal flush with the panel, facing out.
-                var worldRotation = surface.BottomLeftPoint.rotation;
+                // ToWorldPosition offsets along this same local +Z for paint depth), so it's
+                // still the right FACING direction. But using BottomLeftPoint.rotation wholesale
+                // also inherits its "up" (whatever roll the artist gave it for their own pixel
+                // coordinate convention) - confirmed wrong from a screenshot showing the decal
+                // lying flat, roughly 90 degrees from vertical ("looks like is 90 deg to the
+                // ground"). Rebuilding the rotation from the same forward vector but the van's
+                // actual world-up keeps the correct facing while forcing the image upright.
+                var worldRotation = Quaternion.LookRotation(surface.BottomLeftPoint.forward, van.transform.up);
 
                 MelonLogger.Msg($"GRQD-Livery: surface[{i}] '{surface.name}' panel={surface.Width}x{surface.Height}px " +
                     $"({worldWidth:F2}x{worldHeight:F2}m) center={worldCenter} decalSize={decalSize:F2}.");

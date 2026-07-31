@@ -19,7 +19,7 @@ namespace LegionCore.Delivery
         //     - Arrow
         //     - SelectedFrame
         public static bool TryCreateTile(DeliveryApp app, string shopName, Color tileColor, string shopInterfaceName,
-            string description, Sprite? icon, out DeliveryShop? shop, out Button? button)
+            string description, Sprite? icon, System.Action? onClick, out DeliveryShop? shop, out Button? button)
         {
             shop = null;
             button = null;
@@ -46,6 +46,21 @@ namespace LegionCore.Delivery
 
             var iconImage = newButton.transform.Find("Icon/Image")?.GetComponent<Image>();
             if (iconImage != null && icon != null) iconImage.sprite = icon;
+
+            if (onClick != null)
+            {
+                // Custom-handled tile (GRQD's own management panel, wired up directly instead
+                // of the vanilla DeliveryShop listing/ordering screen). No DeliveryShop clone,
+                // no _shopElements entry - DeliveryApp.Start() has already finished its one-time
+                // wiring loop over _shopElements by the time this runs (it's called from a
+                // Harmony POSTFIX on Start(), see DeliveryApi.cs), so appending to that list
+                // now wouldn't retroactively wire anything from that loop anyway. We just need
+                // the button itself active and clickable, which we do here directly.
+                newButton.gameObject.SetActive(true);
+                newButton.onClick.AddListener((UnityAction)onClick);
+                button = newButton;
+                return true;
+            }
 
             var newShop = UnityEngine.Object.Instantiate(template.Shop, template.Shop.transform.parent);
             newShop.name = shopName + "_Shop";
