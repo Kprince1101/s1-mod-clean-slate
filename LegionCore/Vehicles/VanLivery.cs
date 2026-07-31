@@ -60,7 +60,13 @@ namespace LegionCore.Vehicles
                 // didn't work": our quad is coplanar with, or literally behind/inside, the van's
                 // own body mesh at that exact position, so it's fully occluded. Push it out
                 // along the same outward normal so it sits proud of the paint layer instead.
-                const float outwardOffset = 0.02f;
+                //
+                // 0.02m wasn't enough - a screenshot after that fix still showed the logo
+                // mostly hidden, only peeking through thin gaps/seams in the body mesh (a
+                // bodyline crease or panel step sticking out further than 2cm at some points
+                // across the decal's ~0.7m span). Bumped further out to clear that relief
+                // across the whole decal, not just its flattest point.
+                const float outwardOffset = 0.06f;
                 var worldCenter = surface.CenterPoint + surface.BottomLeftPoint.forward * outwardOffset;
                 // Previously forced "up" to van.transform.up (world-vertical), on the theory
                 // that BottomLeftPoint's own roll was the bug. Wrong call: a van body isn't a
