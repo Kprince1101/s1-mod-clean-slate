@@ -28,6 +28,7 @@ namespace CleanSlate
 
         private bool _sent;
         private bool _storefrontSpawned;
+        private bool _shaderDiagnosticsLogged;
         private GameObject? _storefrontShell;
         private GameObject? _parkingPad;
 
@@ -40,6 +41,16 @@ namespace CleanSlate
         public override void OnUpdate()
         {
             LegionCore.Api.CheckVersion();
+
+            if (!_shaderDiagnosticsLogged && LegionCore.Api.IsGameReady)
+            {
+                _shaderDiagnosticsLogged = true;
+                // Temporary: the shell's primitives render translucent/"ghostly" under
+                // Sprites/Default (a transparent-blend shader, wrong fit for solid
+                // architecture) - this logs real opaque-shader candidates from this build's
+                // actual compiled shader set so the next fix is based on data, not a guess.
+                LegionCore.Buildings.ShaderDiagnostics.LogOpaqueCandidates();
+            }
 
             if (!_storefrontSpawned && LegionCore.Api.IsGameReady)
             {

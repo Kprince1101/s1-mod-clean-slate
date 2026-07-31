@@ -154,12 +154,24 @@ dock and the parking pad are both slated for the same (right/east) side.
 **Not yet verified in-game** - first shell report came back "there is no building" despite a
 clean success log. Prime suspect: `GameObject.CreatePrimitive`'s default material likely uses
 a shader stripped from this Il2Cpp build, same failure class VanLivery already hit and fixed
-for the van decals (`Shader.Find("Sprites/Default")`). `PrimitiveBuilder.cs` now forces that
-same shader for every wall/window/roof/pad primitive. Also added in this pass: a real
-"which corner of the map is this" notification on spawn (the site is stationary and far from
-GRQD's van/dock testing area, easy to never actually walk past), and a window-placement fix
-(the original front-wall window layout silently dropped any window slot that landed over the
-door gap - only 2 of 4 requested windows were actually being built).
+for the van decals (`Shader.Find("Sprites/Default")`). `PrimitiveBuilder.cs` forced that same
+shader for every wall/window/roof/pad primitive - fixed the invisibility, but the next report
+was "genuinely floating a couple feet above street level... transparent and reddish... like a
+'ghost'." Floating is expected until flattening is fixed (see below); the transparency is a
+new, separate problem - `Sprites/Default` is a transparent-blend shader built for alpha-
+channel sprites, not solid architecture, so a shell made of a dozen overlapping wall/window/
+roof primitives blends back-to-front instead of properly occluding. `ShaderDiagnostics.cs`
+now logs every shader actually compiled into the build (filtered to opaque/solid-color
+candidates) so the real fix picks a genuinely opaque shader from this build's actual set
+instead of another guess. `PrepareSite`/tree-clearing also crashed once with a
+`NullReferenceException` (`TerrainData.treeInstances` came back `null`) - fixed with a null
+guard and try/catch so one bad step degrades instead of silently skipping every step after it
+in the sequence (site prep -> parking pad -> notification).
+
+Also added in this pass: a "which corner of the map is this" notification on spawn (the site
+is stationary and far from GRQD's van/dock testing area, easy to never actually walk past),
+and a window-placement fix (the original front-wall window layout silently dropped any window
+slot that landed over the door gap - only 2 of 4 requested windows were actually being built).
 
 ---
 
