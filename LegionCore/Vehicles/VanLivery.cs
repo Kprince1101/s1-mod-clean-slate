@@ -49,19 +49,29 @@ namespace LegionCore.Vehicles
                 // Fit our square logo inside the panel with some margin rather than stretching
                 // it to fill a (probably non-square) canvas.
                 var decalSize = Mathf.Min(worldWidth, worldHeight) * 0.7f;
-                var worldCenter = surface.CenterPoint;
-                // BottomLeftPoint.forward is the surface's outward paint normal (SpraySurface.
-                // ToWorldPosition offsets along this same local +Z for paint depth), so it's
-                // still the right FACING direction. But using BottomLeftPoint.rotation wholesale
-                // also inherits its "up" (whatever roll the artist gave it for their own pixel
-                // coordinate convention) - confirmed wrong from a screenshot showing the decal
-                // lying flat, roughly 90 degrees from vertical ("looks like is 90 deg to the
-                // ground"). Rebuilding the rotation from the same forward vector but the van's
-                // actual world-up keeps the correct facing while forcing the image upright.
+                // BottomLeftPoint.forward is the surface's outward paint normal (still the
+                // right FACING direction - only its "up"/roll was wrong, fixed below). But
+                // CenterPoint itself sits at local Z=0 on BottomLeftPoint with no depth offset
+                // (confirmed from the decompiled SpraySurface.ToWorldPosition, whose own
+                // `offset` param defaults to 0f) - the real in-game graffiti render goes through
+                // a DecalProjector component with its own separately hand-placed Z depth
+                // (ResizeProjector never touches Projector's Z from BottomLeftPoint), not a
+                // flat quad sitting exactly on that point. Likely explanation for "van decal
+                // didn't work": our quad is coplanar with, or literally behind/inside, the van's
+                // own body mesh at that exact position, so it's fully occluded. Push it out
+                // along the same outward normal so it sits proud of the paint layer instead.
+                const float outwardOffset = 0.02f;
+                var worldCenter = surface.CenterPoint + surface.BottomLeftPoint.forward * outwardOffset;
+                // Using BottomLeftPoint.rotation wholesale also inherits its "up" (whatever roll
+                // the artist gave it for their own pixel coordinate convention) - confirmed
+                // wrong from a screenshot showing the decal lying flat, roughly 90 degrees from
+                // vertical ("looks like is 90 deg to the ground"). Rebuilding the rotation from
+                // the same forward vector but the van's actual world-up keeps the correct facing
+                // while forcing the image upright.
                 var worldRotation = Quaternion.LookRotation(surface.BottomLeftPoint.forward, van.transform.up);
 
                 MelonLogger.Msg($"GRQD-Livery: surface[{i}] '{surface.name}' panel={surface.Width}x{surface.Height}px " +
-                    $"({worldWidth:F2}x{worldHeight:F2}m) center={worldCenter} decalSize={decalSize:F2}.");
+                    $"({worldWidth:F2}x{worldHeight:F2}m) rawCenter={surface.CenterPoint} offsetCenter={worldCenter} decalSize={decalSize:F2}.");
 
                 CreateDecal(van.transform, logo, worldCenter, worldRotation, decalSize);
             }
