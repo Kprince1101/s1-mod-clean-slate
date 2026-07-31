@@ -22,6 +22,11 @@
 		<Reference Include="Il2Cppmscorlib"><HintPath>$(ManagedDllPath)\Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="UnityEngine"><HintPath>$(ManagedDllPath)\UnityEngine.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDllPath)\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+		<!-- typeof(Terrain)/typeof(TerrainData)/typeof(TreeInstance) for the ApiSurfaceDump call
+		     in Plugin.cs - a plain <Reference> on LegionCore.csproj doesn't flow through to
+		     projects that only ProjectReference it, so this needs its own copy of the same
+		     reference LegionCore.csproj has. -->
+		<Reference Include="UnityEngine.TerrainModule"><HintPath>$(ManagedDllPath)\UnityEngine.TerrainModule.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Assembly-CSharp"><HintPath>$(ManagedDllPath)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
 	</ItemGroup>
 

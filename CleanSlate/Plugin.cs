@@ -28,7 +28,7 @@ namespace CleanSlate
 
         private bool _sent;
         private bool _storefrontSpawned;
-        private bool _shaderDiagnosticsLogged;
+        private bool _apiDumpLogged;
         private GameObject? _storefrontShell;
         private GameObject? _parkingPad;
 
@@ -42,14 +42,18 @@ namespace CleanSlate
         {
             LegionCore.Api.CheckVersion();
 
-            if (!_shaderDiagnosticsLogged && LegionCore.Api.IsGameReady)
+            if (!_apiDumpLogged && LegionCore.Api.IsGameReady)
             {
-                _shaderDiagnosticsLogged = true;
-                // Temporary: the shell's primitives render translucent/"ghostly" under
-                // Sprites/Default (a transparent-blend shader, wrong fit for solid
-                // architecture) - this logs real opaque-shader candidates from this build's
-                // actual compiled shader set so the next fix is based on data, not a guess.
-                LegionCore.Buildings.ShaderDiagnostics.LogOpaqueCandidates();
+                _apiDumpLogged = true;
+                // Temporary investigation pass, not a permanent feature: dumps real reflected
+                // member lists for the terrain types PrepareSite needs (GetHeights/SetHeights
+                // broke compilation) plus every shader actually compiled into this build (the
+                // shell's primitives render translucent/"ghostly" under Sprites/Default - a
+                // transparent-blend shader, wrong fit for solid architecture). One pass
+                // instead of chasing each surprise with its own round trip. Writes
+                // LegionCore_ApiDump.txt next to CleanSlate.dll in the Mods folder.
+                LegionCore.Diagnostics.ApiSurfaceDump.WriteReport("LegionCore_ApiDump.txt",
+                    typeof(Terrain), typeof(TerrainData), typeof(TreeInstance));
             }
 
             if (!_storefrontSpawned && LegionCore.Api.IsGameReady)
