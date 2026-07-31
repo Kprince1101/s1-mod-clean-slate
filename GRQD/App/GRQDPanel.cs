@@ -68,7 +68,16 @@ namespace GRQD.App
                 parent = AppsCanvas.Instance.canvas.transform;
             }
 
-            var container = UiFactory.CreatePanel(parent, Color.clear, "GRQDPanel_Root");
+            // Container itself is opaque now, not Color.clear - it used to just be a full-
+            // stretch invisible raycast-blocker with a smaller 3%-97%-inset "Background" card
+            // drawn inside it, which left a thin transparent band around all four edges. Mostly
+            // unnoticeable, EXCEPT this panel opens on top of the Delivery app's own shop list
+            // (see Toggle()), and that band let a sliver of it bleed through - most visible on
+            // the left, where the shop list's colored tiles happen to sit (reported: "the space
+            // to the lft is weird"). Making the container itself the opaque background removes
+            // the gap entirely; the inner "Background" panel below is now just a wash of the
+            // same color for organizational parenting, not a second visual layer.
+            var container = UiFactory.CreatePanel(parent, BackgroundColor, "GRQDPanel_Root");
             container.anchorMin = Vector2.zero;
             container.anchorMax = Vector2.one;
             container.offsetMin = Vector2.zero;
@@ -76,11 +85,11 @@ namespace GRQD.App
             _root = container.gameObject;
             _root.SetActive(false);
 
-            var root = UiFactory.CreatePanel(container, BackgroundColor, "Background");
-            root.anchorMin = new Vector2(0.03f, 0.03f);
-            root.anchorMax = new Vector2(0.97f, 0.97f);
-            root.offsetMin = Vector2.zero;
-            root.offsetMax = Vector2.zero;
+            var root = UiFactory.CreatePanel(container, Color.clear, "Background");
+            root.anchorMin = Vector2.zero;
+            root.anchorMax = Vector2.one;
+            root.offsetMin = new Vector2(6f, 6f);
+            root.offsetMax = new Vector2(-6f, -6f);
 
             var title = UiFactory.CreateText(root, "Global Real Quick Delivery", 24, "Title", AccentColor);
             title.fontStyle = FontStyle.Bold;
