@@ -32,6 +32,15 @@ namespace CleanSlate
         private GameObject? _storefrontShell;
         private GameObject? _parkingPad;
 
+        // Terrain.terrainData showed up null on one run even after LegionCore.Api.IsGameReady
+        // fired - not a signature/API-shape question (no guessing there), just a plain "is this
+        // reference actually assigned yet" timing check. Give the terrain a few seconds to
+        // finish whatever's assigning terrainData before falling back to spawning anyway (with
+        // tree-clear/flatten skipped, same as today) rather than silently doing this once and
+        // giving up forever if it's still null on the very first ready frame.
+        private int _terrainWaitFrames;
+        private const int TerrainWaitFrameLimit = 300;
+
         public override void OnInitializeMelon()
         {
             LegionCore.Api.Initialize();
@@ -58,8 +67,21 @@ namespace CleanSlate
 
             if (!_storefrontSpawned && LegionCore.Api.IsGameReady)
             {
-                _storefrontSpawned = true;
-                SpawnStorefrontSite();
+                bool terrainReady = Terrain.activeTerrain != null && Terrain.activeTerrain.terrainData != null;
+                if (!terrainReady && _terrainWaitFrames < TerrainWaitFrameLimit)
+                {
+                    _terrainWaitFrames++;
+                }
+                else
+                {
+                    if (!terrainReady)
+                    {
+                        LoggerInstance.Warning($"CleanSlate: Terrain.terrainData still null after " +
+                            $"{TerrainWaitFrameLimit} frames - spawning anyway, tree clear/flatten will be skipped.");
+                    }
+                    _storefrontSpawned = true;
+                    SpawnStorefrontSite();
+                }
             }
 
             if (_sent || !LegionCore.Api.Notifications.IsReady) return;
@@ -113,13 +135,20 @@ namespace CleanSlate
                 Width = Vector3.Distance(flatLeft, flatRight),
             };
 
-            _storefrontShell = LegionCore.Api.Buildings.SpawnStorefrontShell(StorefrontLotLeft, rotation, options);
+            // Real bug, not the known flattening-disabled issue: StorefrontLotLeft.y (1.11) is
+            // a raw scouted reading off the lot's sloped/uneven ground (spec: "ground needs to
+            // be flattened to street level"), not street level itself - the spec's separate
+            // "front, middle-ish" reading sits at y=0.04, over a meter lower. Passing that
+            // elevated y straight into SetPositionAndRotation put the whole shell a meter-plus
+            // above where it should sit. flatLeft already zeroes y for the width/rotation math
+            // above; use it for the spawn origin too instead of the unzeroed corner reading.
+            _storefrontShell = LegionCore.Api.Buildings.SpawnStorefrontShell(flatLeft, rotation, options);
             if (_storefrontShell == null)
             {
                 LoggerInstance.Msg("CleanSlate: storefront shell spawn failed.");
                 return;
             }
-            LoggerInstance.Msg($"CleanSlate: storefront shell spawned at {StorefrontLotLeft}, width={options.Width:F2}m.");
+            LoggerInstance.Msg($"CleanSlate: storefront shell spawned at {flatLeft}, width={options.Width:F2}m.");
 
             var buildingTransform = _storefrontShell.transform;
 

@@ -100,10 +100,30 @@ point now that delivery is GRQD's job, not a separate mechanic Clean Slate build
   side untouched per the sewer entrance there), and a cosmetic parking pad
   (`ParkingPadFactory`) on the east/right side are all wired into `CleanSlate/Plugin.cs`,
   spawning at the candidate lot's real corner readings.
-- First report back was "there is no building" despite a clean success log — prime suspect is
-  a shader-stripping issue `PrimitiveBuilder.cs` now fixes (forces `Shader.Find("Sprites/
-  Default")`, same fix VanLivery already needed for the van decals). **Not yet re-verified
-  in-game.**
+- First report back was "there is no building" despite a clean success log — prime suspect was
+  a shader-stripping issue `PrimitiveBuilder.cs` fixed (forces `Shader.Find("Sprites/
+  Default")`, same fix VanLivery already needed for the van decals). **Confirmed visible
+  in-game** by a follow-up screenshot, but that same shader renders the shell translucent/
+  "ghostly" (it's a transparent-blend shader, wrong fit for solid architecture) — real fix
+  needs a genuinely opaque shader name pulled from `ApiSurfaceDump`'s output, not chosen
+  in-repo, per `AGENTS.md`'s "no guessing."
+- Two more real bugs found and fixed from that same report ("mesh isnt aligned... still too
+  high" + a log showing `ApiSurfaceDump` crashing before writing its file): (1) the shell's
+  spawn origin was using an unzeroed, sloped-ground Y reading instead of street level — fixed
+  in `CleanSlate/Plugin.cs` (reuse `flatLeft` for the spawn position, not raw
+  `StorefrontLotLeft`); (2) `ApiSurfaceDump.cs` now wraps every individual reflected member
+  access in its own try/catch so one bad `TerrainData` property (a `TypeLoadException` on its
+  `DetailPrototype[]` property) can't wipe the whole report before the file gets written.
+  Neither re-verified in-game yet — needs a rebuild + relaunch.
+- **Still open, not guessed at:** the alignment complaint itself. See
+  `docs/clean-slate-spec.md`'s "Storefront Site" section — the `Left`/`Right` corner readings
+  used for facing rotation don't line up well with the spec's separate "front, middle-ish"
+  reading (~7-8m off in Z, over a meter off in Y), so those readings may not actually sit on
+  the sidewalk-facing edge the rotation math assumes. Needs confirmation or a fresh pair of
+  readings taken at that edge before trusting the facing rotation.
+- Also open: `Terrain.terrainData` showed up `null` once even after the game reported ready —
+  treated as a timing issue, not an API question; `Plugin.OnUpdate` now waits up to ~300
+  frames for it to become non-null before spawning. Not yet re-verified.
 - Deferred to later M2 passes: a functional door object, on-site product storage,
   ownership/buy-unlock flow.
 - Delivery *into* the storefront's on-site storage is a GRQD concern (a route's finish can

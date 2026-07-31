@@ -173,6 +173,47 @@ is stationary and far from GRQD's van/dock testing area, easy to never actually 
 and a window-placement fix (the original front-wall window layout silently dropped any window
 slot that landed over the door gap - only 2 of 4 requested windows were actually being built).
 
+**Confirmed visible in-game** after the shader fix - screenshot showed the shell standing,
+heavily obscured by uncleared pine trees. Two more real problems surfaced from that same
+report: "the mesh isnt aligned with the street very well and its still too high," plus a log
+showing `ApiSurfaceDump` itself crashing (`TypeLoadException` reflecting `TerrainData`'s
+`DetailPrototype[]`-returning property - `Il2CppReferenceArray<DetailPrototype>` apparently
+violates a generic constraint under this interop) before it could write its file, and a new
+`Terrain.terrainData is null` warning (different from the earlier `treeInstances`-null crash -
+this time the `TerrainData` reference itself, not its tree array, was null).
+
+Fixes so far:
+- `ApiSurfaceDump.cs` rewritten to wrap every individual property/field/method access (not
+  just the outer call) in its own try/catch, so one broken reflected member logs an inline
+  error instead of losing the entire report before the file gets written. Not yet re-verified
+  - needs a rebuild + relaunch to confirm `LegionCore_ApiDump.txt` actually gets written this
+  time.
+- **Real bug found and fixed** in `CleanSlate/Plugin.cs`: the shell's spawn origin was passing
+  `StorefrontLotLeft` (y=1.11) straight into `Transform.SetPositionAndRotation`, but that y is
+  a raw reading off the lot's sloped/uneven ground (see requirements above - "ground needs to
+  be flattened to street level"), not street level itself. The spec's separate "front,
+  middle-ish" reading sits at y=0.04, over a meter lower. `flatLeft` (y=0) was already computed
+  for the width/rotation math but wasn't being reused for the spawn position - now it is. This
+  was a second, independent cause of "still too high" on top of the already-known
+  flattening-disabled cause.
+- `Terrain.terrainData is null` treated as a timing question, not an API-shape one (no
+  guessing there per `AGENTS.md`): `Plugin.OnUpdate` now polls `Terrain.activeTerrain?.
+  terrainData` each frame after `IsGameReady` fires and waits up to ~300 frames for it to
+  become non-null before spawning, falling back to spawning anyway (tree-clear/flatten still
+  skipped) with a warning if it never does, instead of a one-shot check that could permanently
+  give up on the very first ready frame.
+
+**Still open, not guessed at:** "the mesh isnt aligned with the street." The five scouted
+readings don't agree well enough to trust blindly - `Left` `(117.88, 1.11, -1.02)` and `Right`
+`(128.72, 1.49, -2.45)` (used for both width and facing rotation) sit close to each other in Z
+and both noticeably elevated in Y, while the separate "front, middle-ish" reading `(122.50,
+0.04, 5.68)` is ~7-8m away in Z and over a meter lower in Y - consistent with `Left`/`Right`
+having been taken up on the sloped part of the lot rather than right at the sidewalk-facing
+edge the width/rotation math assumes they're on. Needs either confirmation that `Left`/`Right`
+really are the sidewalk edge, or a fresh pair of readings taken deliberately at that edge
+(same technique that fixed the earlier van placement issue) before the facing rotation can be
+trusted.
+
 ---
 
 ## Open Questions / Design TODO
