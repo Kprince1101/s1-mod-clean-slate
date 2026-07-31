@@ -97,6 +97,46 @@ MVP explicitly defers: multi-zone, handler/dock delivery automation, laundering 
 
 ---
 
+## Storefront Site — candidate location (Legion's field notes, not yet built)
+
+Not started - captured here so it isn't lost before Clean Slate work actually begins. Real
+in-game readings (`GRQD: app opened at player position` log line, used as a stand-in
+positional reading tool the same way GRQD's van geometry was scouted):
+
+- Left side of storefront: `(117.88, 1.11, -1.02)`
+- Right side: `(128.72, 1.49, -2.45)`
+- Front, middle-ish: `(122.50, 0.04, 5.68)`
+- Back, middle-ish: also logged as `(122.50, 0.04, 5.68)` - identical to the front reading,
+  likely the app was opened twice without moving in between. Needs a real back reading before
+  this site's footprint can be nailed down.
+- Additional nearby reading: `(123.01, 0.05, 9.73)`
+
+Site requirements from that scouting trip:
+- Pickup dock can go beside the right side of the building, OR behind it - either works.
+- Ground needs to be flattened to street level at the build site (currently uneven/sloped).
+- Existing trees on the lot need to be cleared.
+- Needs a door for NPC pathing (customers in/out).
+- Needs a second door facing the dock specifically, so a handler can move product in/out
+  quickly without cutting through the customer-facing side.
+- Needs to support worker assignment (dealer-at-counter, per Core Mechanics #2).
+- Should have windows and general storefront detailing on the front facade, plus a visible
+  business name/signage.
+
+**Open feasibility question this raises (see Open Questions #9 below):** building a custom
+structure from scratch at this lot - terrain flattening, tree removal, a modeled building
+with doors/windows - is a fundamentally different kind of work than everything shipped so far
+in GRQD/LegionCore. All of that has been pure C# spawning/repositioning existing game objects
+(vans, UI panels, primitive quads) at runtime; there's no Unity Editor or 3D asset pipeline in
+this workflow to sculpt terrain or model a building with textures. That kind of work needs
+either real 3D content creation (Blender model -> Unity AssetBundle -> load at runtime) or
+repurposing an *existing* in-game ownable property (Bungalow/Manor/generic Business - see
+grqd-spec.md's Property research) that already has walls/doors/windows built in, and just
+dressing it up as the storefront instead of constructing new geometry at this specific lot.
+The second path is achievable through code the same way everything else here has been; the
+first isn't, without bringing in real modeling work.
+
+---
+
 ## Open Questions / Design TODO
 
 1. **Handler → storefront routing:** how do handlers/dock deliver to a storefront's on-site storage? Reuse manor handler logic, or new system? (Biggest unknown.)
@@ -107,6 +147,7 @@ MVP explicitly defers: multi-zone, handler/dock delivery automation, laundering 
 6. **Specials:** how is the "special" selected and surfaced to the player? UI/notification?
 7. **Relationship to OTC (OverTheCounter):** OTC covered similar ground (storefronts, budtenders, Vic-laundering) but is abandoned/version-broken. Decide: from-scratch clean take, or reference its approach? Position Clean Slate as the maintained, current-version storefront mod.
 8. **Base-game version target:** build against current beta (0.4.6f9) from the start to avoid OTC's version-drift fate.
+9. **Custom-built storefront vs. repurposed existing property:** hand-building a new structure (terrain edits, tree removal, a modeled building) needs real 3D asset creation tools this project doesn't currently use anywhere - a genuinely different workflow than the runtime-spawning approach GRQD/LegionCore are built on. Repurposing an existing ownable property as the storefront shell sidesteps that entirely. Needs a decision before the storefront site work above can actually start.
 
 ---
 
