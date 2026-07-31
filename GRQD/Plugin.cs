@@ -132,5 +132,23 @@ namespace GRQD
             LoggerInstance.Msg("GRQD: sent proof-of-life notification via LegionCore.");
             _sent = true;
         }
+
+        // Root cause of every "can't find the van" report: it was never actually staying
+        // where it spawned. Confirmed from a log showing it 27m away just 1.4s after a spawn
+        // at the exact intended point - nowhere near normal suspension settling, and not
+        // something handbrakeOverride can stop (LandVehicle only reads that flag when
+        // overrideControls is true, which only VehicleAgent.Navigate sets - never true for
+        // this idle test van, so nothing was holding it in place at all). Whether it's
+        // spawn-point collider overlap getting shoved out or just free-rolling on a slope with
+        // a fully released rigidbody, the fix is the same regardless of which: hold the
+        // Rigidbody's velocity at zero every physics tick for as long as this test van exists.
+        // It's a static prop proving spawn/color/livery work, not something that should ever
+        // be able to drift - permanently pinning it is the correct behavior, not a workaround.
+        public override void OnFixedUpdate()
+        {
+            if (_testVan == null) return;
+            _testVan.Rb.velocity = Vector3.zero;
+            _testVan.Rb.angularVelocity = Vector3.zero;
+        }
     }
 }
