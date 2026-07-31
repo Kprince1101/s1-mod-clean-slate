@@ -62,13 +62,18 @@ namespace LegionCore.Vehicles
                 // along the same outward normal so it sits proud of the paint layer instead.
                 const float outwardOffset = 0.02f;
                 var worldCenter = surface.CenterPoint + surface.BottomLeftPoint.forward * outwardOffset;
-                // Using BottomLeftPoint.rotation wholesale also inherits its "up" (whatever roll
-                // the artist gave it for their own pixel coordinate convention) - confirmed
-                // wrong from a screenshot showing the decal lying flat, roughly 90 degrees from
-                // vertical ("looks like is 90 deg to the ground"). Rebuilding the rotation from
-                // the same forward vector but the van's actual world-up keeps the correct facing
-                // while forcing the image upright.
-                var worldRotation = Quaternion.LookRotation(surface.BottomLeftPoint.forward, van.transform.up);
+                // Previously forced "up" to van.transform.up (world-vertical), on the theory
+                // that BottomLeftPoint's own roll was the bug. Wrong call: a van body isn't a
+                // flat box ("kia toaster") - side panels are angled/tapered, not perfectly
+                // vertical. Forcing world-vertical made a flat rectangle sit at the wrong angle
+                // against a non-flat surface, so it partially clipped into the body at some
+                // points and floated visibly off it at others (screenshot: a torn-looking
+                // sliver of color instead of a clean logo). BottomLeftPoint.up is derived
+                // straight from the artist's own placement of this exact panel (CenterPoint's
+                // math walks Height along local +Y to reach panel-center, so local +Y IS
+                // "up the panel" in real 3D, tilt and all) - that's the vector that actually
+                // matches this panel's real angle, not world-vertical.
+                var worldRotation = Quaternion.LookRotation(surface.BottomLeftPoint.forward, surface.BottomLeftPoint.up);
 
                 MelonLogger.Msg($"GRQD-Livery: surface[{i}] '{surface.name}' panel={surface.Width}x{surface.Height}px " +
                     $"({worldWidth:F2}x{worldHeight:F2}m) rawCenter={surface.CenterPoint} offsetCenter={worldCenter} decalSize={decalSize:F2}.");
