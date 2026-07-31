@@ -17,9 +17,19 @@ namespace CleanSlate
         private static readonly Vector3 StorefrontLotLeft = new(117.88f, 1.11f, -1.02f);
         private static readonly Vector3 StorefrontLotRight = new(128.72f, 1.49f, -2.45f);
 
+        // Site prep padding/parking sizing - see docs/clean-slate-spec.md "Storefront Site"
+        // for the "left side (sewer entrance) stays as-is, right side gets a small parking
+        // lot, doors on both the sidewalk and parking sides" direction.
+        private const float FrontClearPadding = 3f;
+        private const float BackClearPadding = 2f;
+        private const float EastWallGap = 0.5f;
+        private const float ParkingPadLength = 8f;
+        private const float ParkingPadDepth = 5f;
+
         private bool _sent;
         private bool _storefrontSpawned;
         private GameObject? _storefrontShell;
+        private GameObject? _parkingPad;
 
         public override void OnInitializeMelon()
         {
@@ -34,7 +44,7 @@ namespace CleanSlate
             if (!_storefrontSpawned && LegionCore.Api.IsGameReady)
             {
                 _storefrontSpawned = true;
-                SpawnStorefrontShell();
+                SpawnStorefrontSite();
             }
 
             if (_sent || !LegionCore.Api.Notifications.IsReady) return;
@@ -44,18 +54,19 @@ namespace CleanSlate
             _sent = true;
         }
 
-        // First real M2 build step: a primitive-built shell at the candidate lot, sized/faced
-        // from the two real corner readings (see StorefrontLotLeft/Right above). No terrain
-        // flattening, functional door, or interior yet - see docs/clean-slate-spec.md "M2
-        // Storefront Site" for what's deferred and why.
-        private void SpawnStorefrontShell()
+        // M2 build step: a primitive-built shell at the candidate lot, sized/faced from the
+        // two real corner readings above, plus terrain prep (tree clear + flatten) and a
+        // parking pad on the east ("right") side, per Legion's direction: left side (sewer
+        // entrance) untouched, right side flattened with a couple parking spaces and its own
+        // door in addition to the sidewalk-facing front door.
+        private void SpawnStorefrontSite()
         {
             var flatLeft = new Vector3(StorefrontLotLeft.x, 0f, StorefrontLotLeft.z);
             var flatRight = new Vector3(StorefrontLotRight.x, 0f, StorefrontLotRight.z);
             var widthDir = flatRight - flatLeft;
             if (widthDir.sqrMagnitude < 0.0001f)
             {
-                LoggerInstance.Warning("CleanSlate: storefront lot corners are identical - skipping shell spawn.");
+                LoggerInstance.Warning("CleanSlate: storefront lot corners are identical - skipping site spawn.");
                 return;
             }
             widthDir.Normalize();
@@ -71,10 +82,51 @@ namespace CleanSlate
             };
 
             _storefrontShell = LegionCore.Api.Buildings.SpawnStorefrontShell(StorefrontLotLeft, rotation, options);
-            if (_storefrontShell != null)
-                LoggerInstance.Msg($"CleanSlate: storefront shell spawned at {StorefrontLotLeft}, width={options.Width:F2}m.");
-            else
+            if (_storefrontShell == null)
+            {
                 LoggerInstance.Msg("CleanSlate: storefront shell spawn failed.");
+                return;
+            }
+            LoggerInstance.Msg($"CleanSlate: storefront shell spawned at {StorefrontLotLeft}, width={options.Width:F2}m.");
+
+            var buildingTransform = _storefrontShell.transform;
+
+            // Local rect: X in [0, west wall face] stays untouched (sewer entrance side);
+            // extends east past the wall far enough to cover the parking pad; small front/back
+            // padding for the sidewalk approach and rear clearance.
+            var siteOptions = new SitePrepOptions
+            {
+                LocalXMin = 0f,
+                LocalXMax = options.Width + EastWallGap + ParkingPadDepth + 1f,
+                LocalZMin = -FrontClearPadding,
+                LocalZMax = options.Depth + BackClearPadding,
+                FlattenLocalY = 0f,
+            };
+            bool prepped = LegionCore.Api.Buildings.PrepareSite(buildingTransform, siteOptions);
+            LoggerInstance.Msg(prepped
+                ? "CleanSlate: storefront site prepped (trees cleared, terrain flattened)."
+                : "CleanSlate: storefront site prep failed - no active terrain.");
+
+            // Parking pad sits flush against the east wall - pad-local +X runs along the
+            // building's depth (front-to-back), pad-local +Z extends east (away from the
+            // wall). See LegionCore.Buildings.ParkingPadOptions for the axis convention.
+            float padOriginZ = (options.Depth + ParkingPadLength) / 2f;
+            var padOrigin = buildingTransform.TransformPoint(new Vector3(options.Width + EastWallGap, 0f, padOriginZ));
+            var padRotation = buildingTransform.rotation * Quaternion.Euler(0f, 90f, 0f);
+            var parkingOptions = new ParkingPadOptions { Length = ParkingPadLength, Depth = ParkingPadDepth };
+
+            _parkingPad = LegionCore.Api.Buildings.SpawnParkingPad(padOrigin, padRotation, parkingOptions);
+            LoggerInstance.Msg(_parkingPad != null
+                ? $"CleanSlate: parking pad spawned at {padOrigin}."
+                : "CleanSlate: parking pad spawn failed.");
+
+            // Stationary and far from GRQD's van/dock testing area - call out exact
+            // coordinates so it's easy to navigate to rather than stumbled on.
+            if (LegionCore.Api.Notifications.IsReady)
+            {
+                LegionCore.Api.Notifications.Send("Clean Slate",
+                    $"Storefront site built near ({StorefrontLotLeft.x:F0}, {StorefrontLotLeft.z:F0}).");
+            }
         }
     }
 }

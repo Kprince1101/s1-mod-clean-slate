@@ -24,6 +24,11 @@ namespace LegionCore.Buildings
         public float DoorWidth = 2f;
         public float DoorHeight = 2.4f;
 
+        // Second door on the east ("right side", per Legion's own left/right corner naming -
+        // see CleanSlate/Plugin.cs) wall, facing the parking pad. 0 = no east door.
+        public float EastDoorWidth = 2f;
+        public float EastDoorHeight = 2.4f;
+
         public int WindowCount = 4;
         public float WindowWidth = 1.2f;
         public float WindowHeight = 1.6f;

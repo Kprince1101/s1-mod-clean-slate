@@ -94,12 +94,18 @@ point now that delivery is GRQD's job, not a separate mechanic Clean Slate build
 
 - Building construction: primitive-based, own code in `LegionCore/Buildings/` — no S1API
   (`AGENTS.md`'s existing rule; see `docs/clean-slate-spec.md`'s "Storefront Site" section for
-  how this got confirmed via checking how OTC's Big Dispensary is actually built). First shell
-  (`StorefrontFactory`: foundation, walls with a front door gap, tinted-glass window overlays,
-  flat roof) wired into `CleanSlate/Plugin.cs`, spawning at the candidate lot's real corner
-  readings — **not yet verified in-game.**
-- Deferred to later M2 passes: terrain flattening + tree removal at the lot, a functional door
-  object, on-site product storage, ownership/buy-unlock flow.
+  how this got confirmed via checking how OTC's Big Dispensary is actually built). Shell
+  (`StorefrontFactory`: foundation, walls with front + east door gaps, tinted-glass window
+  overlays, flat roof), terrain site prep (`TerrainSitePrep`: tree clear + flatten, west/left
+  side untouched per the sewer entrance there), and a cosmetic parking pad
+  (`ParkingPadFactory`) on the east/right side are all wired into `CleanSlate/Plugin.cs`,
+  spawning at the candidate lot's real corner readings.
+- First report back was "there is no building" despite a clean success log — prime suspect is
+  a shader-stripping issue `PrimitiveBuilder.cs` now fixes (forces `Shader.Find("Sprites/
+  Default")`, same fix VanLivery already needed for the van decals). **Not yet re-verified
+  in-game.**
+- Deferred to later M2 passes: a functional door object, on-site product storage,
+  ownership/buy-unlock flow.
 - Delivery *into* the storefront's on-site storage is a GRQD concern (a route's finish can
   target the storefront, per the GRQD spec) — Clean Slate doesn't build its own
   delivery/dock logic. `docs/delivery-dock-spec.md`'s API findings (dock placement, storage

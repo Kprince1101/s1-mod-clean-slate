@@ -140,9 +140,26 @@ Dispensary as visual inspiration only, not copied assets or code).
 
 Terrain flattening and tree removal (the actual placement complaints about OTC's version, per
 Legion - "it was perfect as far as the way it looked, it just had trees all over the place and
-no dock") are real remaining work, scoped separately: LegionCore has no terrain-editing/tree-
-removal helper yet, and building one is its own pass once the shell's proportions and
-placement look right in-game.
+no dock") are now implemented: `LegionCore/Buildings/TerrainSitePrep.cs` clears
+terrain-painted trees and flattens height within a rectangle in the building's own local
+space, so the west/left side (sewer entrance - "to the left of the building can stay the way
+it is") can be left at 0 padding while the east/right side extends out to cover a small
+parking pad. `LegionCore/Buildings/ParkingPadFactory.cs` builds that pad (cosmetic asphalt +
+line stripes, not the vanilla functional `ScheduleOne.Map.ParkingLot`/`ParkingSpot` system -
+see `ParkingPadOptions`). `StorefrontFactory` now also puts a second door on the east wall
+(parking side) in addition to the front/sidewalk door, per Legion's direction - this can do
+double duty as the "second door facing the dock" from the site requirements above, since the
+dock and the parking pad are both slated for the same (right/east) side.
+
+**Not yet verified in-game** - first shell report came back "there is no building" despite a
+clean success log. Prime suspect: `GameObject.CreatePrimitive`'s default material likely uses
+a shader stripped from this Il2Cpp build, same failure class VanLivery already hit and fixed
+for the van decals (`Shader.Find("Sprites/Default")`). `PrimitiveBuilder.cs` now forces that
+same shader for every wall/window/roof/pad primitive. Also added in this pass: a real
+"which corner of the map is this" notification on spawn (the site is stationary and far from
+GRQD's van/dock testing area, easy to never actually walk past), and a window-placement fix
+(the original front-wall window layout silently dropped any window slot that landed over the
+door gap - only 2 of 4 requested windows were actually being built).
 
 ---
 

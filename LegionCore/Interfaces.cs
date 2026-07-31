@@ -57,6 +57,18 @@ namespace LegionCore
         // point. options defaults to StorefrontShellOptions' Clean Slate candidate-lot sizing
         // if null. Returns the shell's root GameObject, or null if width/depth are invalid.
         GameObject? SpawnStorefrontShell(Vector3 originSW, Quaternion rotation, StorefrontShellOptions? options = null);
+
+        // Clears terrain-painted trees and flattens terrain height within a rectangle in
+        // buildingTransform's local space (see SitePrepOptions - each side gets independent
+        // padding, so a side that should stay untouched can use 0). Client-local edit only
+        // (Unity's Terrain has no netcode). Returns false if there's no active terrain.
+        bool PrepareSite(Transform buildingTransform, SitePrepOptions options);
+
+        // Spawns a cosmetic flat asphalt pad with painted space-divider stripes (see
+        // ParkingPadOptions for why this isn't the vanilla functional ParkingLot/ParkingSpot
+        // system). originLocalZero/rotation define the pad's own placement, independent of
+        // any building. Returns the pad's root GameObject, or null if length/depth are invalid.
+        GameObject? SpawnParkingPad(Vector3 originLocalZero, Quaternion rotation, ParkingPadOptions? options = null);
     }
 
     public interface IConfigurableApi
