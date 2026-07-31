@@ -53,7 +53,7 @@ namespace CleanSlate
                 // instead of chasing each surprise with its own round trip. Writes
                 // LegionCore_ApiDump.txt next to CleanSlate.dll in the Mods folder.
                 LegionCore.Diagnostics.ApiSurfaceDump.WriteReport("LegionCore_ApiDump.txt",
-                    typeof(Terrain), typeof(TerrainData), typeof(TreeInstance));
+                    typeof(Terrain), typeof(TerrainData), typeof(TreeInstance), typeof(Shader));
             }
 
             if (!_storefrontSpawned && LegionCore.Api.IsGameReady)

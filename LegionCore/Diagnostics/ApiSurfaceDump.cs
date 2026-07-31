@@ -71,17 +71,21 @@ namespace LegionCore.Diagnostics
             }
         }
 
+        // Shader.GetShaderCount/GetShaderInfo aren't a runtime API at all - those are
+        // UnityEditor.ShaderUtil build-inspection methods (editor-only), not
+        // UnityEngine.Shader. That was my own mistake, not another interop gap.
+        // Resources.FindObjectsOfTypeAll<Shader>() is the real runtime equivalent: every
+        // Shader object currently loaded in memory. By the time this runs (game fully
+        // loaded), that should cover whatever the vanilla scene/UI/vehicles are actually
+        // using - a practical, real list instead of a hypothetical compiled-but-unused set.
         private static void AppendShaderList(StringBuilder sb)
         {
             sb.AppendLine();
-            sb.AppendLine("---- Shaders compiled into this build ----");
-            int count = UnityEngine.Shader.GetShaderCount();
-            sb.AppendLine($"  Total: {count}");
-            for (int i = 0; i < count; i++)
-            {
-                var info = UnityEngine.Shader.GetShaderInfo(i);
-                sb.AppendLine($"  [{i}] '{info.name}' supported={info.supported} hasErrors={info.hasErrors}");
-            }
+            sb.AppendLine("---- Shaders currently loaded (Resources.FindObjectsOfTypeAll<Shader>()) ----");
+            var shaders = UnityEngine.Resources.FindObjectsOfTypeAll<UnityEngine.Shader>();
+            sb.AppendLine($"  Total loaded: {shaders.Length}");
+            foreach (var s in shaders.OrderBy(s => s.name))
+                sb.AppendLine($"  '{s.name}'");
         }
 
         private static string GetOutputPath(string fileName)
