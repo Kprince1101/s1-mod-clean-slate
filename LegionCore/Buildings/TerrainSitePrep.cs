@@ -4,10 +4,10 @@ using UnityEngine;
 
 namespace LegionCore.Buildings
 {
-    // Clears terrain-painted trees and flattens terrain height within a building-local-space
-    // rectangle (see SitePrepOptions). Both TerrainData.treeInstances reassignment and
-    // SetHeights are client-local edits - Unity's Terrain component has no netcode - which
-    // matches GRQD/LegionCore's existing single-player-only scope (see VehicleApi.Navigate's
+    // Clears terrain-painted trees and (once FlattenHeights is un-stubbed - see below)
+    // flattens terrain height within a building-local-space rectangle (see SitePrepOptions).
+    // Client-local edits only - Unity's Terrain component has no netcode - which matches
+    // GRQD/LegionCore's existing single-player-only scope (see VehicleApi.Navigate's
     // host-only note). Works in the building's own rotated local space (not a world-space
     // AABB) so a rotated building still gets correct per-side padding.
     internal static class TerrainSitePrep
@@ -21,13 +21,19 @@ namespace LegionCore.Buildings
                 return false;
             }
 
-            float flattenWorldY = buildingTransform.position.y + o.FlattenLocalY;
-
             int treesRemoved = ClearTrees(terrain, buildingTransform, o);
-            FlattenHeights(terrain, buildingTransform, o, flattenWorldY);
 
-            MelonLogger.Msg($"LegionCore-Buildings: site prep - removed {treesRemoved} trees, flattened local rect " +
-                $"x[{o.LocalXMin:F1},{o.LocalXMax:F1}] z[{o.LocalZMin:F1},{o.LocalZMax:F1}] to y={flattenWorldY:F2}.");
+            // FlattenHeights is temporarily disabled - TerrainData.GetHeights/SetHeights use
+            // float[,] (2D arrays), which this build's Il2CppInterop-generated TerrainData
+            // stub doesn't bind normally (GetHeights came back typed Il2CppObjectBase,
+            // SetHeights wasn't found at all - real build errors, not a guess). Needs the
+            // actual generated TerrainData member list from Legion's machine before this can
+            // be fixed for real, rather than guessing at a replacement signature.
+            MelonLogger.Warning("LegionCore-Buildings: terrain flattening skipped - " +
+                "TerrainData.GetHeights/SetHeights aren't usable under this build's IL2CPP interop yet.");
+
+            MelonLogger.Msg($"LegionCore-Buildings: site prep - removed {treesRemoved} trees " +
+                $"(flattening pending) in local rect x[{o.LocalXMin:F1},{o.LocalXMax:F1}] z[{o.LocalZMin:F1},{o.LocalZMax:F1}].");
             return true;
         }
 
@@ -56,56 +62,12 @@ namespace LegionCore.Buildings
             return removed;
         }
 
-        private static void FlattenHeights(Terrain terrain, Transform buildingTransform, SitePrepOptions o, float flattenWorldY)
-        {
-            var data = terrain.terrainData;
-            var terrainPos = terrain.transform.position;
-            var size = data.size;
-            int res = data.heightmapResolution;
-
-            // Conservative world-space scan box from the local rect's 4 corners - covers a
-            // rotated footprint without under-scanning; each candidate pixel is then re-tested
-            // against the actual local rect below.
-            var corners = new[]
-            {
-                buildingTransform.TransformPoint(new Vector3(o.LocalXMin, 0f, o.LocalZMin)),
-                buildingTransform.TransformPoint(new Vector3(o.LocalXMax, 0f, o.LocalZMin)),
-                buildingTransform.TransformPoint(new Vector3(o.LocalXMax, 0f, o.LocalZMax)),
-                buildingTransform.TransformPoint(new Vector3(o.LocalXMin, 0f, o.LocalZMax)),
-            };
-            float worldXMin = float.MaxValue, worldXMax = float.MinValue, worldZMin = float.MaxValue, worldZMax = float.MinValue;
-            foreach (var c in corners)
-            {
-                worldXMin = Mathf.Min(worldXMin, c.x);
-                worldXMax = Mathf.Max(worldXMax, c.x);
-                worldZMin = Mathf.Min(worldZMin, c.z);
-                worldZMax = Mathf.Max(worldZMax, c.z);
-            }
-
-            int xBase = Mathf.Clamp(Mathf.FloorToInt((worldXMin - terrainPos.x) / size.x * (res - 1)), 0, res - 1);
-            int xEnd = Mathf.Clamp(Mathf.CeilToInt((worldXMax - terrainPos.x) / size.x * (res - 1)), 0, res - 1);
-            int zBase = Mathf.Clamp(Mathf.FloorToInt((worldZMin - terrainPos.z) / size.z * (res - 1)), 0, res - 1);
-            int zEnd = Mathf.Clamp(Mathf.CeilToInt((worldZMax - terrainPos.z) / size.z * (res - 1)), 0, res - 1);
-            int xCount = xEnd - xBase + 1;
-            int zCount = zEnd - zBase + 1;
-            if (xCount <= 0 || zCount <= 0) return;
-
-            float normalizedHeight = Mathf.Clamp01((flattenWorldY - terrainPos.y) / size.y);
-            var existing = data.GetHeights(xBase, zBase, xCount, zCount);
-            var heights = new float[zCount, xCount];
-
-            for (int zi = 0; zi < zCount; zi++)
-            {
-                for (int xi = 0; xi < xCount; xi++)
-                {
-                    float u = (float)(xBase + xi) / (res - 1);
-                    float v = (float)(zBase + zi) / (res - 1);
-                    var worldPos = new Vector3(terrainPos.x + u * size.x, 0f, terrainPos.z + v * size.z);
-                    heights[zi, xi] = IsInsideLocalRect(worldPos, buildingTransform, o) ? normalizedHeight : existing[zi, xi];
-                }
-            }
-
-            data.SetHeights(xBase, zBase, heights);
-        }
+        // FlattenHeights removed for now, not just disabled - it called TerrainData.
+        // GetHeights/SetHeights (Mono-style float[,] signatures), and those don't compile
+        // against this build's Il2CppInterop-generated TerrainData stub (GetHeights resolved
+        // to Il2CppObjectBase - can't be indexed; SetHeights wasn't found at all). Rewriting
+        // this needs the real member list from that generated stub - see the request in
+        // conversation. The world-AABB-from-local-rect-corners scan approach above (and
+        // IsInsideLocalRect) still apply once a working height read/write API is confirmed.
     }
 }
