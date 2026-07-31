@@ -1,5 +1,4 @@
 using Il2CppInterop.Runtime.Injection;
-using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.UI.Phone;
 using Il2CppScheduleOne.Vehicles;
 using Il2CppScheduleOne.Vehicles.Modification;
@@ -19,6 +18,15 @@ namespace GRQD
     {
         // GRQD's own branding - see docs/grqd-spec.md "Aesthetic / Branding".
         private static readonly Color ShopColor = new Color(0f, 0.5f, 0.5f); // teal
+
+        // Fixed test-van spawn point, given directly by Legion as two real in-game readings:
+        // standing at the front of a van, then at the back, each captured via the "app opened
+        // at player position" log line. Spawns at the midpoint, facing along the front->back
+        // line - replaces the old "4m in front of wherever the player happens to be facing"
+        // logic, which put the van in a different spot every single session and was never
+        // reliably findable. This is a known, fixed world location now.
+        private static readonly Vector3 TestVanFrontPoint = new Vector3(37.63f, 0.14f, 73.99f);
+        private static readonly Vector3 TestVanBackPoint = new Vector3(42.70f, 0.14f, 74.36f);
 
         private bool _sent;
         private bool _testVanSpawned;
@@ -80,40 +88,26 @@ namespace GRQD
                 _panel = new GameObject("GRQDPanel").AddComponent<GRQDPanel>();
             }
 
-            // Temporary: spawns one test van near the local player the first frame the game
-            // is ready. Proves spawn + color end-to-end. Safe to leave alongside the real app.
-            //
-            // Previously used a blind PlayerBasePosition + Vector3(5,0,5) diagonal offset with
-            // no idea what was actually at that XZ position - reported twice as "can't find the
-            // van", once traced to it having landed on top of a nearby motel roof. Fixed by
-            // spawning directly in front of wherever the player is currently facing (so it's
-            // somewhere they just looked), pinned to the player's own ground height, with only
-            // a short +/-2m downward raycast to catch local variation (curbs/slope) - not a
-            // long-range raycast, which would just as happily snap onto a distant roof again.
+            // Temporary: spawns one test van at a known, fixed location the first frame the
+            // game is ready. Proves spawn + color end-to-end. Safe to leave alongside the real
+            // app. See TestVanFrontPoint/TestVanBackPoint above for where that location came
+            // from and why it's fixed instead of player-relative now.
             if (!_testVanSpawned && Api.IsGameReady)
             {
                 _testVanSpawned = true;
 
-                var player = Player.Local;
-                var flatForward = player.transform.forward;
-                flatForward.y = 0f;
-                if (flatForward.sqrMagnitude < 0.01f) flatForward = Vector3.forward;
-                flatForward.Normalize();
+                var spawnPos = (TestVanFrontPoint + TestVanBackPoint) * 0.5f;
+                var forward = (TestVanFrontPoint - TestVanBackPoint).normalized;
+                var spawnRot = Quaternion.LookRotation(forward, Vector3.up);
 
-                var spawnPos = player.PlayerBasePosition + flatForward * 4f;
-                if (Physics.Raycast(spawnPos + Vector3.up * 2f, Vector3.down, out var hit, 4f))
-                {
-                    spawnPos.y = hit.point.y;
-                }
-
-                var van = Api.Vehicles.SpawnVan(spawnPos, Quaternion.LookRotation(flatForward, Vector3.up), EVehicleColor.Cyan, livery: _icon);
+                var van = Api.Vehicles.SpawnVan(spawnPos, spawnRot, EVehicleColor.Cyan, livery: _icon);
                 if (van != null)
                 {
                     _testVan = van;
                     _vanSpawnTime = Time.time;
-                    LoggerInstance.Msg($"GRQD test van spawned 4m in front of player at {spawnPos}.");
+                    LoggerInstance.Msg($"GRQD test van spawned at fixed point {spawnPos}.");
                     if (Api.Notifications.IsReady)
-                        Api.Notifications.Send("GRQD", "Test van spawned right in front of you.");
+                        Api.Notifications.Send("GRQD", "Test van spawned at its usual spot.");
                 }
                 else
                 {
