@@ -28,5 +28,10 @@
 		<Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(ManagedDllPath)\UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Assembly-CSharp"><HintPath>$(ManagedDllPath)\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
 		<Reference Include="Il2CppFishNet.Runtime"><HintPath>$(ManagedDllPath)\Il2CppFishNet.Runtime.dll</HintPath><Private>false</Private></Reference>
+		<!-- ItemInstance : BaseItemInstance, and BaseItemInstance (ScheduleOne.Core.Items.Framework)
+		     lives in this separate assembly, not Assembly-CSharp - needed as soon as any code
+		     touches an ItemInstance member whose signature involves the base type (e.g.
+		     ItemInstance.GetCopy), even indirectly via StorageTransfer.cs. -->
+		<Reference Include="Il2CppScheduleOne.Core"><HintPath>$(ManagedDllPath)\Il2CppScheduleOne.Core.dll</HintPath><Private>false</Private></Reference>
 	</ItemGroup>
 </Project>
