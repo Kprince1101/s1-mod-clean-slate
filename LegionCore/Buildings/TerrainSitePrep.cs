@@ -21,7 +21,20 @@ namespace LegionCore.Buildings
                 return false;
             }
 
-            int treesRemoved = ClearTrees(terrain, buildingTransform, o);
+            int treesRemoved;
+            try
+            {
+                treesRemoved = ClearTrees(terrain, buildingTransform, o);
+            }
+            catch (System.Exception ex)
+            {
+                // Tree clearing is one part of a larger site-spawn sequence (shell, then this,
+                // then the parking pad, then a notification) - letting an exception here
+                // unwind the whole call killed all of those downstream steps for one bad tree
+                // read, not just this one. Degrade instead of crash.
+                MelonLogger.Error($"LegionCore-Buildings: tree clearing failed - {ex.Message}");
+                treesRemoved = 0;
+            }
 
             // FlattenHeights is temporarily disabled - TerrainData.GetHeights/SetHeights use
             // float[,] (2D arrays), which this build's Il2CppInterop-generated TerrainData
@@ -47,7 +60,29 @@ namespace LegionCore.Buildings
         private static int ClearTrees(Terrain terrain, Transform buildingTransform, SitePrepOptions o)
         {
             var data = terrain.terrainData;
+            if (data == null)
+            {
+                MelonLogger.Warning("LegionCore-Buildings: Terrain.terrainData is null - skipping tree clear.");
+                return 0;
+            }
+
+            // Unity's Mono API guarantees treeInstances is at least an empty array; this
+            // build's IL2CppInterop-generated TerrainData apparently doesn't hold that
+            // guarantee (confirmed real crash: NullReferenceException here). Could mean either
+            // no terrain-painted trees exist in this scene at all (Schedule I may place trees
+            // as regular scene GameObjects instead - a different removal approach entirely),
+            // or just that the getter needs different handling under this interop. Log which
+            // it is instead of guessing.
             var instances = data.treeInstances;
+            if (instances == null)
+            {
+                MelonLogger.Warning("LegionCore-Buildings: TerrainData.treeInstances returned null - " +
+                    "no terrain-painted trees to clear (or unsupported here). If trees are still visible " +
+                    "in-game, they're likely placed as scene GameObjects, not terrain instances, and need " +
+                    "a different removal approach.");
+                return 0;
+            }
+
             var kept = new List<TreeInstance>(instances.Length);
             int removed = 0;
 

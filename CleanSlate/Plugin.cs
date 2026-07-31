@@ -61,6 +61,23 @@ namespace CleanSlate
         // door in addition to the sidewalk-facing front door.
         private void SpawnStorefrontSite()
         {
+            try
+            {
+                SpawnStorefrontSiteInner();
+            }
+            catch (System.Exception ex)
+            {
+                // This is several steps in sequence (shell, site prep, parking pad,
+                // notification) - an unguarded exception partway through has already once
+                // silently skipped every step after it (TerrainSitePrep's tree-clear crash).
+                // Surface anything unexpected instead of letting it vanish into MelonLoader's
+                // per-frame exception log with no context on which step failed.
+                LoggerInstance.Error($"CleanSlate: SpawnStorefrontSite failed - {ex}");
+            }
+        }
+
+        private void SpawnStorefrontSiteInner()
+        {
             var flatLeft = new Vector3(StorefrontLotLeft.x, 0f, StorefrontLotLeft.z);
             var flatRight = new Vector3(StorefrontLotRight.x, 0f, StorefrontLotRight.z);
             var widthDir = flatRight - flatLeft;
@@ -104,7 +121,7 @@ namespace CleanSlate
             };
             bool prepped = LegionCore.Api.Buildings.PrepareSite(buildingTransform, siteOptions);
             LoggerInstance.Msg(prepped
-                ? "CleanSlate: storefront site prepped (trees cleared, terrain flattened)."
+                ? "CleanSlate: storefront site prepped (tree clear attempted - see LegionCore-Buildings log for count; flattening still disabled)."
                 : "CleanSlate: storefront site prep failed - no active terrain.");
 
             // Parking pad sits flush against the east wall - pad-local +X runs along the
