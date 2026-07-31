@@ -1,4 +1,5 @@
 using System.Reflection;
+using LegionCore.Buildings;
 using LegionCore.Delivery;
 using LegionCore.Notifications;
 using LegionCore.Npcs;
@@ -16,6 +17,7 @@ namespace LegionCore
         public static IConfigurableApi Configurables { get; } = new ConfigurableApi();
         public static ISaveApi Save { get; } = new SaveApi();
         public static INotificationsApi Notifications { get; } = new NotificationsApi();
+        public static IBuildingApi Buildings { get; } = new BuildingApi();
 
         public static bool IsGameReady => Readiness.Check();
 

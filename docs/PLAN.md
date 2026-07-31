@@ -86,12 +86,20 @@ Static feasibility check against the actual game assemblies: can we place a cust
 move product between storage locations programmatically, spawn/route a vehicle to a custom
 point. All three came back feasible. See `docs/delivery-dock-spec.md`.
 
-#### M2 — Storefront core (next up, the actual first build step)
+#### M2 — Storefront core (in progress, first build step underway)
 
 From the spec's original "Storefront core" docket: the physical storefront building,
 ownership/buy-unlock flow, on-site product storage. This is Clean Slate's real starting
 point now that delivery is GRQD's job, not a separate mechanic Clean Slate builds itself.
 
+- Building construction: primitive-based, own code in `LegionCore/Buildings/` — no S1API
+  (`AGENTS.md`'s existing rule; see `docs/clean-slate-spec.md`'s "Storefront Site" section for
+  how this got confirmed via checking how OTC's Big Dispensary is actually built). First shell
+  (`StorefrontFactory`: foundation, walls with a front door gap, tinted-glass window overlays,
+  flat roof) wired into `CleanSlate/Plugin.cs`, spawning at the candidate lot's real corner
+  readings — **not yet verified in-game.**
+- Deferred to later M2 passes: terrain flattening + tree removal at the lot, a functional door
+  object, on-site product storage, ownership/buy-unlock flow.
 - Delivery *into* the storefront's on-site storage is a GRQD concern (a route's finish can
   target the storefront, per the GRQD spec) — Clean Slate doesn't build its own
   delivery/dock logic. `docs/delivery-dock-spec.md`'s API findings (dock placement, storage
@@ -124,8 +132,8 @@ GRQD: GRQD0/GRQD1 done, GRQD2 in progress — van spawn/color and Delivery-app l
 moved into `LegionCore` with both known bugs fixed, not yet re-verified in-game; rest of the
 build order not started.
 Clean Slate: M0/M1 done (M1 fed into GRQD, not independent CS work anymore), M2 (storefront
-core) is next up, M3 needs a design pass (behavior on existing NPCs, not NPC creation),
-rent/income direction undecided
+core) in progress — first primitive-built shell wired in, not yet verified in-game — M3 needs
+a design pass (behavior on existing NPCs, not NPC creation), rent/income direction undecided
 (Clean Slate milestone vs. third mod).
 
 ## Open process question

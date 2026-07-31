@@ -1,5 +1,6 @@
 using Il2CppScheduleOne.Vehicles;
 using Il2CppScheduleOne.Vehicles.Modification;
+using LegionCore.Buildings;
 using UnityEngine;
 
 namespace LegionCore
@@ -43,6 +44,19 @@ namespace LegionCore
     public interface INpcApi
     {
         bool IsReady { get; }
+    }
+
+    public interface IBuildingApi
+    {
+        bool IsReady { get; }
+
+        // Builds a rectangular shell (foundation, walls with a front door gap, tinted-glass
+        // window overlays, flat roof) entirely from primitives - no S1API/MeshVault, per
+        // AGENTS.md's no-S1API rule. originSW is the building's south-west foundation corner
+        // at ground level; rotation's forward faces the direction the front wall (and door)
+        // point. options defaults to StorefrontShellOptions' Clean Slate candidate-lot sizing
+        // if null. Returns the shell's root GameObject, or null if width/depth are invalid.
+        GameObject? SpawnStorefrontShell(Vector3 originSW, Quaternion rotation, StorefrontShellOptions? options = null);
     }
 
     public interface IConfigurableApi
