@@ -1,6 +1,7 @@
 using Il2CppInterop.Runtime.Injection;
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.UI.Phone;
+using Il2CppScheduleOne.Vehicles;
 using Il2CppScheduleOne.Vehicles.Modification;
 using GRQD.App;
 using LegionCore;
@@ -22,8 +23,11 @@ namespace GRQD
         private bool _sent;
         private bool _testVanSpawned;
         private bool _appSpawned;
+        private bool _vanSettledLogged;
+        private float _vanSpawnTime;
         private Sprite? _icon;
         private GRQDPanel? _panel;
+        private LandVehicle? _testVan;
 
         public override void OnInitializeMelon()
         {
@@ -78,14 +82,54 @@ namespace GRQD
 
             // Temporary: spawns one test van near the local player the first frame the game
             // is ready. Proves spawn + color end-to-end. Safe to leave alongside the real app.
+            //
+            // Previously used a blind PlayerBasePosition + Vector3(5,0,5) diagonal offset with
+            // no idea what was actually at that XZ position - reported twice as "can't find the
+            // van", once traced to it having landed on top of a nearby motel roof. Fixed by
+            // spawning directly in front of wherever the player is currently facing (so it's
+            // somewhere they just looked), pinned to the player's own ground height, with only
+            // a short +/-2m downward raycast to catch local variation (curbs/slope) - not a
+            // long-range raycast, which would just as happily snap onto a distant roof again.
             if (!_testVanSpawned && Api.IsGameReady)
             {
                 _testVanSpawned = true;
-                var spawnPos = Player.Local.PlayerBasePosition + new Vector3(5f, 0f, 5f);
-                var van = Api.Vehicles.SpawnVan(spawnPos, Quaternion.identity, EVehicleColor.Cyan, livery: _icon);
-                LoggerInstance.Msg(van != null
-                    ? $"GRQD test van spawned near player at {spawnPos}."
-                    : "GRQD test van spawn failed.");
+
+                var player = Player.Local;
+                var flatForward = player.transform.forward;
+                flatForward.y = 0f;
+                if (flatForward.sqrMagnitude < 0.01f) flatForward = Vector3.forward;
+                flatForward.Normalize();
+
+                var spawnPos = player.PlayerBasePosition + flatForward * 4f;
+                if (Physics.Raycast(spawnPos + Vector3.up * 2f, Vector3.down, out var hit, 4f))
+                {
+                    spawnPos.y = hit.point.y;
+                }
+
+                var van = Api.Vehicles.SpawnVan(spawnPos, Quaternion.LookRotation(flatForward, Vector3.up), EVehicleColor.Cyan, livery: _icon);
+                if (van != null)
+                {
+                    _testVan = van;
+                    _vanSpawnTime = Time.time;
+                    LoggerInstance.Msg($"GRQD test van spawned 4m in front of player at {spawnPos}.");
+                    if (Api.Notifications.IsReady)
+                        Api.Notifications.Send("GRQD", "Test van spawned right in front of you.");
+                }
+                else
+                {
+                    LoggerInstance.Msg("GRQD test van spawn failed.");
+                }
+            }
+
+            // One-shot follow-up log ~1.5s after spawn: vehicles are rigidbody-driven, so if
+            // the spawn point wasn't perfectly clear the van may slide/fall after spawning.
+            // This confirms whether the van's final resting position matches where we placed
+            // it, instead of requiring another "still can't find it" round-trip to debug.
+            if (_testVan != null && !_vanSettledLogged && Time.time - _vanSpawnTime > 1.5f)
+            {
+                _vanSettledLogged = true;
+                var pos = _testVan.transform.position;
+                LoggerInstance.Msg($"GRQD test van settled at ({pos.x:F2}, {pos.y:F2}, {pos.z:F2}).");
             }
 
             if (_sent || !Api.Notifications.IsReady) return;
