@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -14,6 +15,16 @@ namespace LegionCore.Diagnostics
     // time, each costing a full game-launch round trip. Reflecting on types already loaded
     // in-process (via typeof(...)) is more reliable than inspecting the DLL from an external
     // tool/script - all dependencies are already resolved by the game/MelonLoader itself.
+    //
+    // Defensive by design, not just around the outside: the first real run threw a
+    // TypeLoadException just from reading one property's PropertyType (TerrainData's
+    // DetailPrototype[]-returning property - Il2CppReferenceArray<DetailPrototype> apparently
+    // violates a generic constraint under this build's interop), and because the old version
+    // only wrote the file once at the very end, that one bad property lost the entire report -
+    // Terrain, TreeInstance, Shader, everything. Every individual member access is now its own
+    // try/catch so one broken property/field/method logs an error line and the rest of the
+    // report still comes through.
+    //
     // Writes a single text file next to this mod's own DLL, meant to become
     // docs/reference/<topic>-api.md once read - not committed as-is.
     public static class ApiSurfaceDump
@@ -25,9 +36,25 @@ namespace LegionCore.Diagnostics
             sb.AppendLine(new string('=', 80));
 
             foreach (var type in types)
-                DumpType(type, sb);
+            {
+                try
+                {
+                    DumpType(type, sb);
+                }
+                catch (Exception ex)
+                {
+                    sb.AppendLine($"  [ERROR dumping type {type?.FullName}: {ex.GetType().Name} - {ex.Message}]");
+                }
+            }
 
-            AppendShaderList(sb);
+            try
+            {
+                AppendShaderList(sb);
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"  [ERROR dumping shader list: {ex.GetType().Name} - {ex.Message}]");
+            }
 
             var path = GetOutputPath(fileName);
             try
@@ -56,18 +83,60 @@ namespace LegionCore.Diagnostics
                 | BindingFlags.Instance | BindingFlags.Static;
 
             sb.AppendLine("  Properties:");
-            foreach (var p in type.GetProperties(flags).OrderBy(p => p.Name))
-                sb.AppendLine($"    {p.PropertyType} {p.Name} {{ {(p.CanRead ? "get; " : "")}{(p.CanWrite ? "set; " : "")}}}");
+            foreach (var p in SafeGetMembers(() => type.GetProperties(flags), sb))
+            {
+                TrySafe(sb, $"property '{p.Name}'", () =>
+                    sb.AppendLine($"    {p.PropertyType} {p.Name} {{ {(p.CanRead ? "get; " : "")}{(p.CanWrite ? "set; " : "")}}}"));
+            }
 
             sb.AppendLine("  Fields:");
-            foreach (var f in type.GetFields(flags).OrderBy(f => f.Name))
-                sb.AppendLine($"    {f.FieldType} {f.Name}");
+            foreach (var f in SafeGetMembers(() => type.GetFields(flags), sb))
+            {
+                TrySafe(sb, $"field '{f.Name}'", () =>
+                    sb.AppendLine($"    {f.FieldType} {f.Name}"));
+            }
 
             sb.AppendLine("  Methods:");
-            foreach (var m in type.GetMethods(flags).Where(m => !m.IsSpecialName).OrderBy(m => m.Name))
+            foreach (var m in SafeGetMembers(() => type.GetMethods(flags).Where(m => !m.IsSpecialName).ToArray(), sb))
             {
-                var ps = string.Join(", ", m.GetParameters().Select(p => $"{p.ParameterType} {p.Name}"));
-                sb.AppendLine($"    {m.ReturnType} {m.Name}({ps})");
+                TrySafe(sb, $"method '{m.Name}'", () =>
+                {
+                    var ps = string.Join(", ", m.GetParameters().Select(p => $"{p.ParameterType} {p.Name}"));
+                    sb.AppendLine($"    {m.ReturnType} {m.Name}({ps})");
+                });
+            }
+        }
+
+        // GetProperties/GetFields/GetMethods themselves could throw for a hostile type, not
+        // just the individual member accesses afterward - same defensive posture, one level up.
+        private static T[] SafeGetMembers<T>(Func<T[]> getter, StringBuilder sb)
+        {
+            try
+            {
+                var members = getter();
+                // Sorting can itself throw if a comparer touches a broken member - sort inside
+                // the try so a bad sort still yields the unsorted list instead of nothing.
+                Array.Sort(members, (a, b) => string.CompareOrdinal(GetMemberName(a), GetMemberName(b)));
+                return members;
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"    [ERROR enumerating members: {ex.GetType().Name} - {ex.Message}]");
+                return Array.Empty<T>();
+            }
+        }
+
+        private static string GetMemberName<T>(T member) => member is MemberInfo mi ? mi.Name : member?.ToString() ?? "";
+
+        private static void TrySafe(StringBuilder sb, string label, Action action)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"    [ERROR on {label}: {ex.GetType().Name} - {ex.Message}]");
             }
         }
 
@@ -84,8 +153,16 @@ namespace LegionCore.Diagnostics
             sb.AppendLine("---- Shaders currently loaded (Resources.FindObjectsOfTypeAll<Shader>()) ----");
             var shaders = UnityEngine.Resources.FindObjectsOfTypeAll<UnityEngine.Shader>();
             sb.AppendLine($"  Total loaded: {shaders.Length}");
-            foreach (var s in shaders.OrderBy(s => s.name))
-                sb.AppendLine($"  '{s.name}'");
+
+            var names = new List<string>();
+            foreach (var s in shaders)
+            {
+                try { names.Add(s.name); }
+                catch (Exception ex) { sb.AppendLine($"  [ERROR reading a shader name: {ex.GetType().Name} - {ex.Message}]"); }
+            }
+            names.Sort(StringComparer.Ordinal);
+            foreach (var n in names)
+                sb.AppendLine($"  '{n}'");
         }
 
         private static string GetOutputPath(string fileName)
