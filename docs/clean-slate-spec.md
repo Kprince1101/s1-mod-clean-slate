@@ -191,11 +191,12 @@ Fixes so far:
 - **Real bug found and fixed** in `CleanSlate/Plugin.cs`: the shell's spawn origin was passing
   `StorefrontLotLeft` (y=1.11) straight into `Transform.SetPositionAndRotation`, but that y is
   a raw reading off the lot's sloped/uneven ground (see requirements above - "ground needs to
-  be flattened to street level"), not street level itself. The spec's separate "front,
-  middle-ish" reading sits at y=0.04, over a meter lower. `flatLeft` (y=0) was already computed
-  for the width/rotation math but wasn't being reused for the spawn position - now it is. This
-  was a second, independent cause of "still too high" on top of the already-known
-  flattening-disabled cause.
+  be flattened to street level"), not street level itself. **Confirmed by Legion (2026-07-31):
+  the floor belongs at the "front, middle-ish" reading's y (0.04), where they were actually
+  standing** - not `Left`/`Right`'s elevated y. `flatLeft`/`flatRight` are now pinned to a new
+  `StorefrontStreetY = 0.04f` constant instead of `0f`, and the spawn origin reuses `flatLeft`
+  instead of the raw, unzeroed corner reading. This was a second, independent cause of "still
+  too high" on top of the already-known flattening-disabled cause.
 - `Terrain.terrainData is null` treated as a timing question, not an API-shape one (no
   guessing there per `AGENTS.md`): `Plugin.OnUpdate` now polls `Terrain.activeTerrain?.
   terrainData` each frame after `IsGameReady` fires and waits up to ~300 frames for it to
@@ -209,10 +210,12 @@ readings don't agree well enough to trust blindly - `Left` `(117.88, 1.11, -1.02
 and both noticeably elevated in Y, while the separate "front, middle-ish" reading `(122.50,
 0.04, 5.68)` is ~7-8m away in Z and over a meter lower in Y - consistent with `Left`/`Right`
 having been taken up on the sloped part of the lot rather than right at the sidewalk-facing
-edge the width/rotation math assumes they're on. Needs either confirmation that `Left`/`Right`
-really are the sidewalk edge, or a fresh pair of readings taken deliberately at that edge
-(same technique that fixed the earlier van placement issue) before the facing rotation can be
-trusted.
+edge the width/rotation math assumes they're on. **Legion confirmed the height diagnosis and
+offered to grab fresh readings** - next step is two new points taken standing right at street
+level on the sidewalk-facing line, one at the far-left extent of the desired frontage (near
+the sewer-entrance boundary, which must stay clear) and one at the far-right extent (where the
+parking pad starts), using the same app-position-log technique. `StorefrontLotLeft`/
+`StorefrontLotRight` in `CleanSlate/Plugin.cs` get replaced with those once in hand.
 
 ---
 

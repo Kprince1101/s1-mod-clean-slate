@@ -17,6 +17,13 @@ namespace CleanSlate
         private static readonly Vector3 StorefrontLotLeft = new(117.88f, 1.11f, -1.02f);
         private static readonly Vector3 StorefrontLotRight = new(128.72f, 1.49f, -2.45f);
 
+        // "Front, middle-ish" reading (docs/clean-slate-spec.md) - Legion standing right at
+        // street level on the sidewalk-facing side. Confirmed (2026-07-31): this Y, not
+        // Left/Right's elevated Y, is where the floor belongs. Left/Right still drive
+        // width/rotation until fresh readings replace them (see the open alignment question in
+        // docs/clean-slate-spec.md).
+        private const float StorefrontStreetY = 0.04f;
+
         // Site prep padding/parking sizing - see docs/clean-slate-spec.md "Storefront Site"
         // for the "left side (sewer entrance) stays as-is, right side gets a small parking
         // lot, doors on both the sidewalk and parking sides" direction.
@@ -115,8 +122,8 @@ namespace CleanSlate
 
         private void SpawnStorefrontSiteInner()
         {
-            var flatLeft = new Vector3(StorefrontLotLeft.x, 0f, StorefrontLotLeft.z);
-            var flatRight = new Vector3(StorefrontLotRight.x, 0f, StorefrontLotRight.z);
+            var flatLeft = new Vector3(StorefrontLotLeft.x, StorefrontStreetY, StorefrontLotLeft.z);
+            var flatRight = new Vector3(StorefrontLotRight.x, StorefrontStreetY, StorefrontLotRight.z);
             var widthDir = flatRight - flatLeft;
             if (widthDir.sqrMagnitude < 0.0001f)
             {
@@ -137,11 +144,11 @@ namespace CleanSlate
 
             // Real bug, not the known flattening-disabled issue: StorefrontLotLeft.y (1.11) is
             // a raw scouted reading off the lot's sloped/uneven ground (spec: "ground needs to
-            // be flattened to street level"), not street level itself - the spec's separate
-            // "front, middle-ish" reading sits at y=0.04, over a meter lower. Passing that
-            // elevated y straight into SetPositionAndRotation put the whole shell a meter-plus
-            // above where it should sit. flatLeft already zeroes y for the width/rotation math
-            // above; use it for the spawn origin too instead of the unzeroed corner reading.
+            // be flattened to street level"), not street level itself. Legion confirmed the
+            // floor belongs at StorefrontStreetY (0.04) instead - where they were standing for
+            // the "front, middle-ish" reading. flatLeft/flatRight are pinned to that Y for the
+            // width/rotation math above; use flatLeft for the spawn origin too instead of the
+            // elevated corner reading.
             _storefrontShell = LegionCore.Api.Buildings.SpawnStorefrontShell(flatLeft, rotation, options);
             if (_storefrontShell == null)
             {
